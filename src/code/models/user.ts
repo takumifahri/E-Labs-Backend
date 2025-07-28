@@ -34,6 +34,8 @@ export interface UserResponse {
     uniqueId: string;
     name: string;
     email: string;
+    address?: string;
+    phone?: string;
     roles: roles[keyof roles];
     createdAt: Date;
     updatedAt: Date;

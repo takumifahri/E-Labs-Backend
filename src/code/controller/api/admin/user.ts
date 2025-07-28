@@ -50,9 +50,21 @@ const getUserById = async(req: express.Request, res: express.Response) => {
         if (!user) {
             return res.status(404).json({ error: "User not found" });
         }
+        // Mapping ke DTO
+        const userResponse: UserResponse = {
+            uniqueId: user.uniqueId,
+            name: user.name,
+            email: user.email,
+            address: user.address ?? undefined,
+            phone: user.phone ?? undefined,
+            roles: user.roles,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+        };
+
         return res.status(200).json({
             message: "User retrieved successfully",
-            data: user
+            data: userResponse
         });
     } catch (err) {
         console.error("Error retrieving user:", err);
@@ -114,8 +126,8 @@ const ListUsers = async(req: express.Request, res: express.Response) => {
             uniqueId: user.uniqueId,
             name: user.name,
             email: user.email,
-            address: user.address,
-            phone: user.phone,
+            address: user.address ?? undefined,
+            phone: user.phone ?? undefined,
             roles: user.roles,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
