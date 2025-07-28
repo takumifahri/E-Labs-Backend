@@ -17,13 +17,27 @@ enum Role {
   admin
   user
 }
-
 model User {
-  id       Int    @id @default(autoincrement())
-  name     String
-  email    String @unique
-  password String
-  address  String?
-  roles    Role
-  phone    String?
+  id        Int     @id @default(autoincrement())
+  uniqueId  String  @unique
+  name      String
+  email     String  @unique
+  password  String
+  address   String?
+  roles     Role
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+}
+
+model Project {
+  id            Int    @id @default(autoincrement())
+  uniqueId String @unique
+  projectName   String
+  clientName    String
+  projectFeature Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 }
