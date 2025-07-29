@@ -6,4 +6,6 @@ const PlanRouter = express.Router();
 
 PlanRouter.post('/create', AuthMiddleware.authMiddleware, AuthMiddleware.Checkroles('admin'), PlanController.createPlanForUser);
 PlanRouter.patch('/update/:uniqueId', AuthMiddleware.authMiddleware, PlanController.updatePlanById);
+PlanRouter.get('/:uniqueId', AuthMiddleware.authMiddleware, PlanController.getPlanById);
+PlanRouter.get('/', AuthMiddleware.authMiddleware, PlanController.getAllPlans);
 export default PlanRouter;

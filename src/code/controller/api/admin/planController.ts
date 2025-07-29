@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { isBlacklisted } from "../../../utils/jwt";
 import { verifyJWTToken } from "../../../utils/hash";
 import { PrismaClient } from "@prisma/client";
-import { CreatePlanRequest, PlanResponse, UpdatePlanRequest } from "../../../models/Plan";
+import { CreatePlanRequest, Plan, PlanResponse, UpdatePlanRequest } from "../../../models/Plan";
 import { v4 as uuidv4 } from "uuid";
 import { error } from "node:console";
 
@@ -195,12 +195,99 @@ const updatePlanById = async(req: Request, res: Response) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 }
+const getAllPlans = async (req: Request, res: Response) => {
+    // Use query params for filtering instead of req.body
+    const { UniqueId, forWhoUid, createdByUUid, NamePlan, Status, Start, End } = req.query;
 
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized, token is missing" });
+    }
+    const token = authHeader.split(" ")[1];
+    if (isBlacklisted(token)) {
+        return res.status(401).json({ message: "Unauthorized, token is blacklisted" });
+    }
+    let decodedToken: any;
+    try {
+        decodedToken = await verifyJWTToken(token);
+        if (!decodedToken || !decodedToken.uniqueId) {
+            return res.status(401).json({ message: "Unauthorized, invalid token" });
+        }
+    } catch (error) {
+        return res.status(401).json({ message: "Unauthorized, invalid token" });
+    }
 
+    // Build filter object
+    const filter: any = {
+        ...(UniqueId && { uniqueId: UniqueId as string }),
+        ...(forWhoUid && { forWhoUid: forWhoUid as string }),
+        ...(createdByUUid && { createdById: createdByUUid as string }),
+        ...(NamePlan && { NamePlan: NamePlan as string }),
+        ...(Status && { Status: Status as string }),
+        ...(Start && { Start: new Date(Start as string) }),
+        ...(End && { End: new Date(End as string) })
+    };
+
+    if (decodedToken.roles === 'admin') {
+        // Admin: get all plans with filter
+        try {
+            const plans = await prisma.plan.findMany({ where: filter });
+            const planResponses: PlanResponse[] = plans.map(plan => ({
+                UniqueId: plan.uniqueId,
+                forWhoUid: plan.forWhoUid,
+                createdByUUid: plan.createdById,
+                NamePlan: plan.NamePlan,
+                Status: plan.Status,
+                Start: new Date(plan.Start),
+                End: new Date(plan.End),
+                createdAt: new Date(plan.createdAt),
+                updatedAt: new Date(plan.updatedAt),
+            }));
+            return res.status(200).json({
+                message: "Plans retrieved successfully",
+                data: planResponses
+            });
+        } catch (error) {
+            console.error("Error retrieving plans:", error);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    } else if (decodedToken.roles === 'user') {
+        // User: only get plans for themselves
+        try {
+            const userFilter = {
+                ...filter,
+                forWhoUid: decodedToken.uniqueId
+            };
+            const plans = await prisma.plan.findMany({ where: userFilter });
+            const planResponses: PlanResponse[] = plans.map(plan => ({
+                UniqueId: plan.uniqueId,
+                forWhoUid: plan.forWhoUid,
+                createdByUUid: plan.createdById,
+                NamePlan: plan.NamePlan,
+                Status: plan.Status,
+                Start: new Date(plan.Start),
+                End: new Date(plan.End),
+                createdAt: new Date(plan.createdAt),
+                updatedAt: new Date(plan.updatedAt),
+            }));
+            return res.status(200).json({
+                message: "Plans retrieved successfully",
+                data: planResponses
+            });
+        } catch (error) {
+            console.error("Error retrieving plans:", error);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    } else {
+        console.error("Forbidden, invalid roles" + decodedToken.roles);
+        return res.status(403).json({ message: "Forbidden, invalid role" });
+    }
+};
 const PlanController = {
     createPlanForUser,
     getPlanById,
     updatePlanById,
+    getAllPlans
 };
 
 export default PlanController;
