@@ -13,6 +13,7 @@ export interface User {
     role: roles[keyof roles];
     createdAt: Date;
     updatedAt: Date;
+    DeletedAt?: Date;
 }
 
 export interface CreateUserRequest {

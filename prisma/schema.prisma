@@ -22,6 +22,7 @@ model User {
   uniqueId  String  @unique
   name      String
   email     String  @unique
+  isActive  Boolean @default(false)
   password  String
   address   String?
   roles     Role
@@ -29,6 +30,11 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
+
+  
+  // Tambahkan relasi balik
+  plansForWho   Plan[] @relation("PlanForWho")
+  plansCreated  Plan[] @relation("PlanCreatedBy")
 }
 
 model Project {
@@ -41,3 +47,26 @@ model Project {
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
 }
+
+enum StatusPlan {
+  notyet
+  onprogres
+  completed
+}
+
+model Plan {
+  id            Int    @id @default(autoincrement())
+  uniqueId String @unique
+  ForWho User @relation("PlanForWho", fields: [forWhoUid], references: [uniqueId])
+  forWhoUid String
+  createdBy User @relation("PlanCreatedBy", fields: [createdById], references: [uniqueId])
+  createdById String
+  Start DateTime
+  End DateTime
+  NamePlan String
+  Status StatusPlan
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+}
+
