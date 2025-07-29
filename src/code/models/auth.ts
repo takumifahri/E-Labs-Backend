@@ -25,5 +25,6 @@ export interface LoginResponse {
     email: string;
     name: string;
     roles: roles[keyof roles];
+    token: string;
     createdAt: Date;
 }
