@@ -46,23 +46,24 @@ Backend ini dibangun menggunakan **Node.js**, **Express**, dan **TypeScript** de
    ```
    npm run dev
    ```
-
 ## Struktur Folder
 
 ```
-src/
-  cmd/                # Entry point server
-  code/
-    config/           # Konfigurasi aplikasi
-    controllers/      # Controller HTTP
-    domain/
-      entities/       # Entity domain
-      repositories/   # Interface repository
-      usecase/        # Business logic
-    infrastructure/
-      database/       # Prisma, seed, koneksi DB
-      middleware/     # Middleware custom
-    routes/           # Routing aplikasi
+src
+│
+├── cmd/                  # Entry point server & app
+│
+├── code/
+│   ├── config/           # Konfigurasi aplikasi (env, cors, dll)
+│   ├── controller/       # Controller HTTP (API & Auth)
+│   ├── database/         # Koneksi DB, Supabase, seed
+│   ├── middleware/       # Middleware custom (auth, error, dll)
+│   ├── models/           # Tipe data & DTO
+│   ├── routes/           # Routing aplikasi (grouping, admin, auth)
+│   └── utils/            # Helper, hash, jwt, validator
+│
+└── generated/
+    └── prisma/           # Prisma client & engine
 ```
 
 ## Script Penting
