@@ -12,6 +12,10 @@ export interface RegisterResponse {
     uniqueId: string;
     email: string;
     name: string;
+    photoProfile?: string;
+    address?: string;
+    phone?: string;
+    roles: roles[keyof roles];
     createdAt: Date;
 }
 
@@ -25,6 +29,9 @@ export interface LoginResponse {
     email: string;
     name: string;
     roles: roles[keyof roles];
+    photoProfile?: string;
+    address?: string;
+    phone?: string; 
     token: string;
     createdAt: Date;
 }

@@ -39,7 +39,9 @@ async function authMiddleware(req: Request, res: Response, next: NextFunction) {
         if (typeof user.roles === 'string' && user.roles === requiredRole) {
             return next();
         }
-        return res.status(403).json({ message: 'Access denied' });
+        next();
+        // Jika tidak sesuai dengan role yang dibutuhkan
+        return res.status(403).json({ message: 'Unauthorized, Access denied' });
     };
 }
 

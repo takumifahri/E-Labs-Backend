@@ -8,6 +8,7 @@ AdminUserRouter.post('/', authMiddleware, AuthMiddleware.Checkroles('admin'), Us
 AdminUserRouter.get('/:uniqueId', authMiddleware, AuthMiddleware.Checkroles('admin'), UserController.getUserById);
 AdminUserRouter.patch('/:uniqueId', authMiddleware, AuthMiddleware.Checkroles('admin'), UserController.updateUser);
 AdminUserRouter.delete('/:uniqueId', authMiddleware, AuthMiddleware.Checkroles('admin'), UserController.deleteUser);
+
 AdminUserRouter.get('/', authMiddleware, AuthMiddleware.Checkroles('admin'), UserController.ListUsers);
 
 export default AdminUserRouter;

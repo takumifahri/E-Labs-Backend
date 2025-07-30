@@ -27,6 +27,7 @@ model User {
   address   String?
   roles     Role
   phone     String?
+  photoProfile String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
@@ -69,4 +70,3 @@ model Plan {
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
 }
-

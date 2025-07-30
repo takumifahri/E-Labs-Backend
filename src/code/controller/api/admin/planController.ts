@@ -5,6 +5,7 @@ import { PrismaClient } from "@prisma/client";
 import { CreatePlanRequest, Plan, PlanResponse, UpdatePlanRequest } from "../../../models/Plan";
 import { v4 as uuidv4 } from "uuid";
 import { error } from "node:console";
+import { queryObjects } from "node:v8";
 
 const prisma = new PrismaClient();
 
@@ -63,7 +64,7 @@ const createPlanForUser = async (req: Request, res: Response) => {
             },
         });
 
-        const planResponse : PlanResponse = {
+        const planResponse: PlanResponse = {
             UniqueId: newPlan.uniqueId,
             forWhoUid: newPlan.forWhoUid,
             createdByUUid: newPlan.createdById,
@@ -120,8 +121,8 @@ const getPlanById = async (req: Request, res: Response) => {
     }
 };
 
-const updatePlanById = async(req: Request, res: Response) => {
-    const { uniqueId } = req.params;    
+const updatePlanById = async (req: Request, res: Response) => {
+    const { uniqueId } = req.params;
     const { forWhoUid, Status, NamePlan, Start, End }: UpdatePlanRequest = req.body;
 
     // Yang hanya bisa si forWhoId yang bisa update
@@ -133,22 +134,22 @@ const updatePlanById = async(req: Request, res: Response) => {
 
     // Extract the token from the Authorization header
     const token = authHeader.split(" ")[1];
-    if(isBlacklisted(token)){
+    if (isBlacklisted(token)) {
         return res.status(401).json({ message: "Unauthorized, token is blacklisted" });
     }
 
     let decodedToken: any;
-    try{
+    try {
         decodedToken = await verifyJWTToken(token);
         if (!decodedToken || !decodedToken.uniqueId) {
             return res.status(401).json({ message: "Unauthorized, invalid token" });
         }
-    }catch (error) {
+    } catch (error) {
         return res.status(401).json({ message: "Unauthorized, invalid token" });
     }
 
     const forWhoId = decodedToken.uniqueId;
-    try{
+    try {
         const existingPlan = await prisma.plan.findUnique({
             where: { uniqueId }
         });
@@ -190,14 +191,28 @@ const updatePlanById = async(req: Request, res: Response) => {
             message: "Plan updated successfully",
             data: planResponse
         });
-    }catch (error) {
+    } catch (error) {
         console.error("Error updating plan:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 }
 const getAllPlans = async (req: Request, res: Response) => {
-    // Use query params for filtering instead of req.body
-    const { UniqueId, forWhoUid, createdByUUid, NamePlan, Status, Start, End } = req.query;
+    const {
+        UniqueId,
+        forWhoUid,
+        createdByUUid,
+        NamePlan,
+        Status,
+        Start,
+        End,
+        NamePlan_like,
+        StatusLike,
+        Start_gte,
+        Start_lte,
+        End_gte,
+        End_lte,
+        search // search global (opsional)
+    } = req.query;
 
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -217,77 +232,168 @@ const getAllPlans = async (req: Request, res: Response) => {
         return res.status(401).json({ message: "Unauthorized, invalid token" });
     }
 
-    // Build filter object
-    const filter: any = {
-        ...(UniqueId && { uniqueId: UniqueId as string }),
-        ...(forWhoUid && { forWhoUid: forWhoUid as string }),
-        ...(createdByUUid && { createdById: createdByUUid as string }),
-        ...(NamePlan && { NamePlan: NamePlan as string }),
-        ...(Status && { Status: Status as string }),
-        ...(Start && { Start: new Date(Start as string) }),
-        ...(End && { End: new Date(End as string) })
-    };
+    // Build dynamic filter
+    const filter: any = {};
+    if (UniqueId) filter.uniqueId = UniqueId as string;
+    if (forWhoUid) filter.forWhoUid = forWhoUid as string;
+    if (createdByUUid) filter.createdById = createdByUUid as string;
+    if (NamePlan) filter.NamePlan = NamePlan as string;
+    if (Status) filter.Status = Status as string;
+    if (Start) filter.Start = new Date(Start as string);
+    if (End) filter.End = new Date(End as string);
 
-    if (decodedToken.roles === 'admin') {
-        // Admin: get all plans with filter
-        try {
-            const plans = await prisma.plan.findMany({ where: filter });
-            const planResponses: PlanResponse[] = plans.map(plan => ({
-                UniqueId: plan.uniqueId,
-                forWhoUid: plan.forWhoUid,
-                createdByUUid: plan.createdById,
-                NamePlan: plan.NamePlan,
-                Status: plan.Status,
-                Start: new Date(plan.Start),
-                End: new Date(plan.End),
-                createdAt: new Date(plan.createdAt),
-                updatedAt: new Date(plan.updatedAt),
-            }));
-            return res.status(200).json({
-                message: "Plans retrieved successfully",
-                data: planResponses
-            });
-        } catch (error) {
-            console.error("Error retrieving plans:", error);
-            return res.status(500).json({ message: "Internal server error" });
+    // Partial match (search)
+    if (NamePlan_like) filter.NamePlan = { contains: NamePlan_like as string, mode: "insensitive" };
+    if (StatusLike) filter.Status = { contains: StatusLike as string, mode: "insensitive" };
+
+    if (search) {
+        const searchStr = search as string;
+        const statusEnumValues = ['notyet', 'onprogres', 'completed'];
+        filter.OR = [
+            { uniqueId: { contains: searchStr, mode: "insensitive" } },
+            { forWhoUid: { contains: searchStr, mode: "insensitive" } },
+            { createdById: { contains: searchStr, mode: "insensitive" } },
+            { NamePlan: { contains: searchStr, mode: "insensitive" } },
+        ];
+        // Jika search cocok dengan enum Status, tambahkan exact match
+        if (statusEnumValues.includes(searchStr)) {
+            filter.OR.push({ Status: searchStr as any });
         }
-    } else if (decodedToken.roles === 'user') {
-        // User: only get plans for themselves
-        try {
-            const userFilter = {
-                ...filter,
-                forWhoUid: decodedToken.uniqueId
-            };
-            const plans = await prisma.plan.findMany({ where: userFilter });
-            const planResponses: PlanResponse[] = plans.map(plan => ({
-                UniqueId: plan.uniqueId,
-                forWhoUid: plan.forWhoUid,
-                createdByUUid: plan.createdById,
-                NamePlan: plan.NamePlan,
-                Status: plan.Status,
-                Start: new Date(plan.Start),
-                End: new Date(plan.End),
-                createdAt: new Date(plan.createdAt),
-                updatedAt: new Date(plan.updatedAt),
-            }));
-            return res.status(200).json({
-                message: "Plans retrieved successfully",
-                data: planResponses
-            });
-        } catch (error) {
-            console.error("Error retrieving plans:", error);
-            return res.status(500).json({ message: "Internal server error" });
-        }
-    } else {
-        console.error("Forbidden, invalid roles" + decodedToken.roles);
-        return res.status(403).json({ message: "Forbidden, invalid role" });
+    }
+
+    // Date range
+    if (Start_gte || Start_lte) {
+        filter.Start = {};
+        if (Start_gte) filter.Start.gte = new Date(Start_gte as string);
+        if (Start_lte) filter.Start.lte = new Date(Start_lte as string);
+    }
+    if (End_gte || End_lte) {
+        filter.End = {};
+        if (End_gte) filter.End.gte = new Date(End_gte as string);
+        if (End_lte) filter.End.lte = new Date(End_lte as string);
+    }
+
+    // Role-based filtering
+    if (decodedToken.roles === 'user') {
+        filter.forWhoUid = decodedToken.uniqueId;
+    }
+
+    try {
+        const plans = await prisma.plan.findMany({ where: filter });
+        const planResponses: PlanResponse[] = plans.map(plan => ({
+            UniqueId: plan.uniqueId,
+            forWhoUid: plan.forWhoUid,
+            createdByUUid: plan.createdById,
+            NamePlan: plan.NamePlan,
+            Status: plan.Status,
+            Start: new Date(plan.Start),
+            End: new Date(plan.End),
+            createdAt: new Date(plan.createdAt),
+            updatedAt: new Date(plan.updatedAt),
+        }));
+        return res.status(200).json({
+            message: "Plans retrieved successfully",
+            data: planResponses
+        });
+    } catch (error) {
+        console.error("Error retrieving plans:", error);
+        return res.status(500).json({ message: "Internal server error" });
     }
 };
+
+const deletePlanById = async (req: Request, res: Response) => {
+    const { uniqueId } = req.params;
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized, token is missing" });
+    }
+    const token = authHeader.split(" ")[1];
+    if (isBlacklisted(token)) {
+        return res.status(401).json({ message: "Unauthorized, token is blacklisted" });
+    }
+    let decodedToken: any;
+    try {
+        decodedToken = await verifyJWTToken(token);
+        if (!decodedToken || !decodedToken.uniqueId) {
+            return res.status(401).json({ message: "Unauthorized, invalid token" });
+        }
+    } catch (error) {
+        return res.status(401).json({ message: "Unauthorized, invalid token" });
+    }
+
+    if (decodedToken.roles !== 'admin') {
+        return res.status(403).json({ message: "Forbidden, you are not authorized to delete this plan" });
+    }
+    try {
+        const plan = await prisma.plan.findUnique({
+            where: { uniqueId }
+        });
+        if (!plan) {
+            return res.status(404).json({ message: "Plan not found" });
+        }
+
+        await prisma.plan.update({
+            where: { uniqueId },
+            data: { deletedAt: new Date() }
+        });
+
+        return res.status(200).json({ message: "Plan deleted successfully" });
+    } catch (error) {
+        console.error("Error deleting plan:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+const deletePermanentlyPlanById = async (req: Request, res: Response) => {
+    const { uniqueId } = req.params;
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized, token is missing" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    if (isBlacklisted(token)) {
+        return res.status(401).json({ message: "Unauthorized, token is blacklisted" });
+    }
+    let decodedToken: any;
+    try {
+        decodedToken = await verifyJWTToken(token);
+        if (!decodedToken || !decodedToken.uniqueId) {
+            return res.status(401).json({ message: "Unauthorized, invalid token" });
+        }
+    } catch (error) {
+        return res.status(401).json({ message: "Unauthorized, invalid token" });
+    }
+
+    if (decodedToken.roles !== 'admin') {
+        return res.status(403).json({ message: "Forbidden, you are not authorized to delete this plan" });
+    }
+    try {
+        const plan = await prisma.plan.findUnique({
+            where: { uniqueId }
+        });
+        if (!plan) {
+            return res.status(404).json({ message: "Plan not found" });
+        }
+
+        await prisma.plan.delete({
+            where: { uniqueId }
+        });
+
+        return res.status(200).json({ message: "Plan deleted permanently" });
+    } catch (error) {
+        console.error("Error deleting plan permanently:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
 const PlanController = {
     createPlanForUser,
     getPlanById,
     updatePlanById,
-    getAllPlans
+    deletePlanById,
+    getAllPlans,
+    deletePermanentlyPlanById
 };
 
 export default PlanController;

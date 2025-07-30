@@ -11,6 +11,9 @@ export interface User {
     password: string;
     isActive: boolean;
     role: roles[keyof roles];
+    address?: string;
+    phone?: string;
+    photoProfile?: string;
     createdAt: Date;
     updatedAt: Date;
     DeletedAt?: Date;

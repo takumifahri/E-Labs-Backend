@@ -46,6 +46,10 @@ const Register = async (req: express.Request, res: express.Response) => {
             uniqueId: registUser.uniqueId,
             email: registUser.email,
             name: registUser.name,
+            roles: registUser.roles,
+            address: registUser.address ?? undefined,
+            phone: registUser.phone ?? undefined,
+            photoProfile: registUser.photoProfile ?? undefined,
             createdAt: registUser.createdAt
         }
 
@@ -86,6 +90,9 @@ const Login = async (req: express.Request, res: express.Response) => {
             email: ValidatingUser.email,
             name: ValidatingUser.name,
             roles: ValidatingUser.roles,
+            phone: ValidatingUser.phone ?? undefined,
+            address: ValidatingUser.address ?? undefined,
+            photoProfile: ValidatingUser.photoProfile ?? undefined,
             token: token,
             createdAt: ValidatingUser.createdAt
         };
