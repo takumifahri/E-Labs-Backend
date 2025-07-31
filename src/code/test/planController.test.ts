@@ -96,4 +96,13 @@ describe('PlanController', () => {
             .set('Authorization', `Bearer ${adminToken}`);
         expect([200, 403, 404]).toContain(res.status);
     });
+
+    afterAll(async () => {
+        // Hapus user yang dibuat untuk testing
+        if (token) {
+            await request(app)
+                .delete(`/api/users/${forWhoUid}`)
+                .set('Authorization', `Bearer ${adminToken}`);
+        }
+    });
 });
