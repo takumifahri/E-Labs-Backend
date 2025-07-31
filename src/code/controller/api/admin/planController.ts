@@ -4,8 +4,9 @@ import { verifyJWTToken } from "../../../utils/hash";
 import { PrismaClient } from "@prisma/client";
 import { CreatePlanRequest, Plan, PlanResponse, UpdatePlanRequest } from "../../../models/Plan";
 import { v4 as uuidv4 } from "uuid";
-import { error } from "node:console";
+import { debug, error } from "node:console";
 import { queryObjects } from "node:v8";
+import { logger } from "../../../utils/logger";
 
 const prisma = new PrismaClient();
 
@@ -196,6 +197,7 @@ const updatePlanById = async (req: Request, res: Response) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 }
+
 const getAllPlans = async (req: Request, res: Response) => {
     const {
         UniqueId,
@@ -213,6 +215,9 @@ const getAllPlans = async (req: Request, res: Response) => {
         End_lte,
         search // search global (opsional)
     } = req.query;
+    logger.info("getAllPlans called with query:", req.query);
+    logger.trace("Start getAllPlans", req.query);
+    logger.time("getAllPlans");
 
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -277,9 +282,11 @@ const getAllPlans = async (req: Request, res: Response) => {
     if (decodedToken.roles === 'user') {
         filter.forWhoUid = decodedToken.uniqueId;
     }
-
+    logger.info("Filter for getAllPlans:", filter);
+    logger.time("getAllPlans");
     try {
         const plans = await prisma.plan.findMany({ where: filter });
+        logger.info("Plans retrieved:", plans.length, "plans found");
         const planResponses: PlanResponse[] = plans.map(plan => ({
             UniqueId: plan.uniqueId,
             forWhoUid: plan.forWhoUid,
@@ -297,12 +304,15 @@ const getAllPlans = async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error("Error retrieving plans:", error);
+        logger.error("Error retrieving plans:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
+    
 };
 
 const deletePlanById = async (req: Request, res: Response) => {
     const { uniqueId } = req.params;
+    logger.info("deletePlanById called with uniqueId:", uniqueId);
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
         return res.status(401).json({ message: "Unauthorized, token is missing" });
@@ -340,6 +350,7 @@ const deletePlanById = async (req: Request, res: Response) => {
         return res.status(200).json({ message: "Plan deleted successfully" });
     } catch (error) {
         console.error("Error deleting plan:", error);
+        logger.error("Error deleting plan:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 }
