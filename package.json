@@ -12,7 +12,7 @@
     "migrate": "prisma migrate dev",
     "migrate:fresh": "prisma migrate reset --force",
     "generate": "npx prisma generate",
-    "seed": "ts-node src/code/infrastructure/database/seed/index.ts",
+    "seed": "ts-node src/code/database/seed/index.ts",
     "reset": "prisma migrate reset",
     "unit-test": "npx vitest"
   },

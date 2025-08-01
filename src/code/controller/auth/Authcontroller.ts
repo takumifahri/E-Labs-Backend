@@ -62,7 +62,6 @@ const Register = async (req: express.Request, res: express.Response) => {
         return res.status(500).json({ error: "Internal server error" });
     }
 }
-
 const Login = async (req: express.Request, res: express.Response) => {
     const { email, password } : LoginRequest = req.body;
     const ValidatingUser = await prisma.user.findUnique({
@@ -77,6 +76,12 @@ const Login = async (req: express.Request, res: express.Response) => {
         if (!comparePassword) {
             return res.status(400).json({ message: "Invalid email or password" });
         }
+
+        // Set isActive to true on login
+        await prisma.user.update({
+            where: { email },
+            data: { isActive: true }
+        });
 
         const token = await generateJWTToken({
             uniqueId: ValidatingUser.uniqueId,
@@ -94,7 +99,8 @@ const Login = async (req: express.Request, res: express.Response) => {
             address: ValidatingUser.address ?? undefined,
             photoProfile: ValidatingUser.photoProfile ?? undefined,
             token: token,
-            createdAt: ValidatingUser.createdAt
+            createdAt: ValidatingUser.createdAt,
+            isActive: true
         };
 
         return res.status(200).json({
@@ -106,7 +112,6 @@ const Login = async (req: express.Request, res: express.Response) => {
         console.error("Error during login:", error);
         return res.status(500).json({ error: "Internal server error" });
     }
-
 }
 
 const Logout = async (req: express.Request, res: express.Response) => {

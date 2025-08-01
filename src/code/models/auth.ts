@@ -32,6 +32,7 @@ export interface LoginResponse {
     photoProfile?: string;
     address?: string;
     phone?: string; 
+    isActive: boolean;
     token: string;
     createdAt: Date;
 }
