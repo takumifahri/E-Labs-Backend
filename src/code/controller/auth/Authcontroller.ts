@@ -117,8 +117,22 @@ const Login = async (req: express.Request, res: express.Response) => {
 const Logout = async (req: express.Request, res: express.Response) => {
     // Implement logout logic if needed, e.g., invalidate token
     const authHeader = req.headers.authorization;
+
     if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1];
+         let decodedToken: any;
+        try {
+            decodedToken = await verifyJWTToken(token);
+            if (!decodedToken || !decodedToken.uniqueId) {
+                return res.status(401).json({ message: "Unauthorized, invalid token" });
+            }
+        } catch (error) {
+            return res.status(401).json({ message: "Unauthorized, invalid token" });
+        }
+        await prisma.user.update({
+            where: { uniqueId: decodedToken.uniqueId },
+            data: { isActive: false }
+        });
         addToBlacklist(token);
     }
     return res.status(200).json({ message: "Logout successful" });
