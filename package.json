@@ -7,7 +7,7 @@
     "dev": "ts-node src/cmd/server.ts",
     "dev:watch": "nodemon --watch src --ext ts --exec ts-node src/cmd/server.ts",
     "build": "prisma generate && tsc",
-    "vercel-build": "echo no build",
+    "vercel-build": "prisma generate",
     "lint": "eslint . --ext .ts",
     "migrate": "prisma migrate dev",
     "migrate:fresh": "prisma migrate reset --force",
