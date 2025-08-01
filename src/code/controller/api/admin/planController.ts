@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from "uuid";
 import { debug, error } from "node:console";
 import { queryObjects } from "node:v8";
 import { logger } from "../../../utils/logger";
-
+import { Plan as Plans } from "@prisma/client";
 const prisma = new PrismaClient();
 
 const createPlanForUser = async (req: Request, res: Response) => {
@@ -287,7 +287,7 @@ const getAllPlans = async (req: Request, res: Response) => {
     try {
         const plans = await prisma.plan.findMany({ where: filter });
         logger.info("Plans retrieved:", plans.length, "plans found");
-        const planResponses: PlanResponse[] = plans.map(plan => ({
+        const planResponses: PlanResponse[] = plans.map((plan: Plans) => ({
             UniqueId: plan.uniqueId,
             forWhoUid: plan.forWhoUid,
             createdByUUid: plan.createdById,

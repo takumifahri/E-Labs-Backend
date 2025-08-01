@@ -1,5 +1,5 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, User } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateUserRequest } from '../../../models/user';
 import { UserResponse } from '../../../models/user';
@@ -122,7 +122,7 @@ const ListUsers = async(req: express.Request, res: express.Response) => {
             return res.status(404).json({ message: "No users found" });
         }
 
-        const userResponses: UserResponse[] = users.map(user => ({
+        const userResponses: UserResponse[] = users.map((user: User) => ({
             uniqueId: user.uniqueId,
             name: user.name,
             email: user.email,
