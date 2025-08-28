@@ -4,17 +4,17 @@ import { roles } from "./user";
 export interface RegisterRequest {
     email: string;
     password: string;
-    name: string;
+    nama: string;
     roles: roles[keyof roles];
 }
 
 export interface RegisterResponse {
     uniqueId: string;
     email: string;
-    name: string;
-    photoProfile?: string;
+    nama: string;
+    semester?: string;
     address?: string;
-    phone?: string;
+    nim?: string;
     roles: roles[keyof roles];
     createdAt: Date;
 }
@@ -27,11 +27,11 @@ export interface LoginRequest {
 export interface LoginResponse {
     uniqueId: string;
     email: string;
-    name: string;
+    nama: string;
     roles: roles[keyof roles];
-    photoProfile?: string;
+    semester?: string;
     address?: string;
-    phone?: string; 
+    nim?: string; 
     isActive: boolean;
     token: string;
     createdAt: Date;
