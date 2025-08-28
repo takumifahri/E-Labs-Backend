@@ -1,4 +1,4 @@
-# Backend Solusi Trimitra Persada
+# Backend Manajemen Proyek Teknologi Informasi
 
 Backend ini dibangun menggunakan **Node.js**, **Express**, dan **TypeScript** dengan pendekatan Clean Architecture. Database utama menggunakan **PostgreSQL** dan ORM **Prisma**.
 
