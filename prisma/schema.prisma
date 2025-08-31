@@ -13,10 +13,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  admin
-  user
-}
 model User {
   id        Int     @id @default(autoincrement())
   uniqueId  String  @unique
@@ -25,18 +21,50 @@ model User {
   isActive  Boolean @default(false)
   password  String
   address   String?
-  roles     Role
-  nim     String?
-  semester String?
+  roleId    Int
+  role      Role    @relation(fields: [roleId], references: [id])
+  nim       String?
+  nip       String?
+  semester  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
 
-  
-  // Tambahkan relasi balik
   plansForWho   Plan[] @relation("PlanForWho")
   plansCreated  Plan[] @relation("PlanCreatedBy")
 }
+
+model Role {
+  id        Int     @id @default(autoincrement())
+  roleName  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  users     User[]
+}
+
+model Ruangan {
+  id        Int     @id @default(autoincrement())
+  nama_ruangan String 
+  nama_gedung  String
+  tipe_ruangan_id Int
+  tipe_ruangan Tipe_Ruangan @relation(fields: [tipe_ruangan_id], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+}
+model Tipe_Ruangan {
+  id        Int     @id @default(autoincrement())
+  nama_tipe String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  ruangan Ruangan[]
+}
+
 
 model Project {
   id            Int    @id @default(autoincrement())

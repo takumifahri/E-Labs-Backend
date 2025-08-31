@@ -1,6 +1,9 @@
-export type roles = {
-    ADMIN: 'admin';
-    USER: 'user';
+export interface Role {
+    id: number;
+    roleName: string;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date;
 }
 
 export interface User {
@@ -10,9 +13,11 @@ export interface User {
     email: string;
     password: string;
     isActive: boolean;
-    role: roles[keyof roles];
     address?: string;
+    roleId: number;
+    role: Role;
     nim?: string;
+    nip?: string;
     semester?: string;
     photoProfile?: string;
     createdAt: Date;
@@ -24,15 +29,17 @@ export interface CreateUserRequest {
     nama: string;
     email: string;
     password: string;
-    role: roles[keyof roles];
-}   
+    roleId: number;
+}
 
 export interface UpdateUserRequest {
     nama?: string;
     email?: string;
-    role?: roles[keyof roles];
+    roleId?: number;
     address?: string;
     nim?: string;
+    nip?: string;
+    semester?: string;
 }
 
 export interface UserResponse {
@@ -41,7 +48,9 @@ export interface UserResponse {
     email: string;
     address?: string;
     nim?: string;
-    roles: roles[keyof roles];
+    nip?: string;
+    semester?: string;
+    role: Role;
     createdAt: Date;
     updatedAt: Date;
 }
