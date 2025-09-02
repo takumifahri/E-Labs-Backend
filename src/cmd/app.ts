@@ -10,7 +10,7 @@ app.use(express.json());
 app.use(cors(corsOptions))
 app.use('/api', router);
 app.get('/', (req, res) => {
-    res.send('Welcome to the Solusi Trimitra Persada API');
+    res.send('Welcome to the API');
 });
 
 export default app;

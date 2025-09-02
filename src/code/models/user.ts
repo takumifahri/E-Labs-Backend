@@ -4,42 +4,43 @@ export type roles = {
 }
 
 export interface User {
-    id: string;
+    id: number;
     uniqueId: string;
-    name: string;
+    nama: string;
     email: string;
     password: string;
     isActive: boolean;
     role: roles[keyof roles];
     address?: string;
-    phone?: string;
+    nim?: string;
+    semester?: string;
     photoProfile?: string;
     createdAt: Date;
     updatedAt: Date;
-    DeletedAt?: Date;
+    deletedAt?: Date;
 }
 
 export interface CreateUserRequest {
-    name: string;
+    nama: string;
     email: string;
     password: string;
     role: roles[keyof roles];
 }   
 
 export interface UpdateUserRequest {
-    name?: string;
+    nama?: string;
     email?: string;
     role?: roles[keyof roles];
     address?: string;
-    phone?: string;
+    nim?: string;
 }
 
 export interface UserResponse {
     uniqueId: string;
-    name: string;
+    nama: string;
     email: string;
     address?: string;
-    phone?: string;
+    nim?: string;
     roles: roles[keyof roles];
     createdAt: Date;
     updatedAt: Date;

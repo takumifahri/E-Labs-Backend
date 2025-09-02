@@ -10,7 +10,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("PROD_PRISMA_DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -20,14 +20,14 @@ enum Role {
 model User {
   id        Int     @id @default(autoincrement())
   uniqueId  String  @unique
-  name      String
+  nama      String
   email     String  @unique
   isActive  Boolean @default(false)
   password  String
   address   String?
   roles     Role
-  phone     String?
-  photoProfile String?
+  nim     String?
+  semester String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?

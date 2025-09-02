@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 
 const Register = async (req: express.Request, res: express.Response) => {
     // decalare the request body type
-    const { email, password, name, roles }: RegisterRequest = req.body;
+    const { email, password, nama, roles }: RegisterRequest = req.body;
     const uniqueId = `USR-${uuidv4()}`;
     const hashPassword = await HashPassword(password);
     try {
@@ -31,7 +31,7 @@ const Register = async (req: express.Request, res: express.Response) => {
                 uniqueId,
                 email,
                 password: hashPassword,
-                name,
+                nama,
                 roles: roles || 'user', // set default role to USER if not provided
                 createdAt: new Date(),
             }
@@ -45,11 +45,11 @@ const Register = async (req: express.Request, res: express.Response) => {
         const responseRegist: RegisterResponse = {
             uniqueId: registUser.uniqueId,
             email: registUser.email,
-            name: registUser.name,
+            nama: registUser.nama,
             roles: registUser.roles,
             address: registUser.address ?? undefined,
-            phone: registUser.phone ?? undefined,
-            photoProfile: registUser.photoProfile ?? undefined,
+            nim: registUser.nim ?? undefined,
+            semester: registUser.semester ?? undefined,
             createdAt: registUser.createdAt
         }
 
@@ -93,11 +93,11 @@ const Login = async (req: express.Request, res: express.Response) => {
         const loginResponse: LoginResponse = {
             uniqueId: ValidatingUser.uniqueId,
             email: ValidatingUser.email,
-            name: ValidatingUser.name,
+            nama: ValidatingUser.nama,
             roles: ValidatingUser.roles,
-            phone: ValidatingUser.phone ?? undefined,
+            nim: ValidatingUser.nim ?? undefined,
             address: ValidatingUser.address ?? undefined,
-            photoProfile: ValidatingUser.photoProfile ?? undefined,
+            semester: ValidatingUser.semester ?? undefined,
             token: token,
             createdAt: ValidatingUser.createdAt,
             isActive: true
