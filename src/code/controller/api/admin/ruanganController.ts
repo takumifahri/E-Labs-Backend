@@ -14,6 +14,21 @@ const prisma = new PrismaClient({
 const CreateRuangan = async (req: Request, res: Response) => {
     const { gedung, nama_ruangan, kode_ruangan }: CreateRuanganRequest = req.body;
     try {
+        // Check if kode_ruangan already exists
+        const existingRuangan = await prisma.ruangan.findUnique({
+            where: { 
+                kode_ruangan: kode_ruangan,
+                deletedAt: null // Only check non-deleted records
+            }
+        });
+
+        if (existingRuangan) {
+            return res.status(409).json({
+                message: "Kode ruangan already exists",
+                error: `Ruangan with code '${kode_ruangan}' already exists`
+            });
+        }
+
         const addRuangan = await prisma.ruangan.create({
             data: {
                 gedung,
@@ -25,7 +40,7 @@ const CreateRuangan = async (req: Request, res: Response) => {
 
         // Invalidate related cache after creation
         await prisma.$accelerate.invalidate({
-            tags: ['ruangan', `ruangan-${gedung}`, 'ruangan-list']
+            tags: ['ruangan', `ruangan_${gedung}`, 'ruangan_list']
         });
 
         return res.status(201).json({
@@ -34,6 +49,15 @@ const CreateRuangan = async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error("Error creating ruangan:", error);
+        
+        // Handle Prisma unique constraint error
+        if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+            return res.status(409).json({
+                message: "Duplicate data",
+                error: "Kode ruangan already exists"
+            });
+        }
+        
         return res.status(500).json({ error: "Internal server error" });
     }
 }
@@ -90,7 +114,7 @@ const GetRuanganById = async (req: Request, res: Response) => {
             },
             cacheStrategy: {
                 ttl: 600, // Cache for 10 minutes
-                tags: ['ruangan', `ruangan-${id}`]
+                tags: ['ruangan', `ruangan_${id}`]
             }
         });
 
@@ -127,10 +151,10 @@ const UpdateRuangan = async (req: Request, res: Response) => {
         await prisma.$accelerate.invalidate({
             tags: [
                 'ruangan', 
-                `ruangan-${id}`, 
-                'ruangan-list',
-                `ruangan-${gedung}`,
-                updatedRuangan.gedung !== gedung ? `ruangan-${updatedRuangan.gedung}` : ''
+                `ruangan_${id}`, 
+                'ruangan_list',
+                `ruangan_${gedung}`,
+                updatedRuangan.gedung !== gedung ? `ruangan_${updatedRuangan.gedung}` : ''
             ].filter(Boolean)
         });
 
@@ -160,9 +184,9 @@ const DeleteRuangan = async (req: Request, res: Response) => {
         await prisma.$accelerate.invalidate({
             tags: [
                 'ruangan', 
-                `ruangan-${id}`, 
-                'ruangan-list',
-                `ruangan-${deletedRuangan.gedung}`
+                `ruangan_${id}`, 
+                'ruangan_list',
+                `ruangan_${deletedRuangan.gedung}`
             ]
         });
 
@@ -181,7 +205,7 @@ const WarmRuanganCache = async (req: Request, res: Response) => {
         await prisma.ruangan.findMany({
             cacheStrategy: {
                 ttl: 3600, // Cache for 1 hour
-                tags: ['ruangan', 'ruangan-list']
+                tags: ['ruangan', 'ruangan_list']
             }
         });
 
