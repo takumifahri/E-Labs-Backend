@@ -50,11 +50,12 @@ model Ruangan {
   nama_gedung  String
   tipe_ruangan_id Int
   tipe_ruangan Tipe_Ruangan @relation(fields: [tipe_ruangan_id], references: [id])
-
+  kapasitas Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
 }
+
 model Tipe_Ruangan {
   id        Int     @id @default(autoincrement())
   nama_tipe String
