@@ -1,20 +1,16 @@
-export interface TipeRuangan {
-    id: number;
-    nama_tipe: string;
-    createdAt: Date;
-    updatedAt: Date;
-    deletedAt?: Date;
-}
+// export interface TipeRuangan {
+//     id: number;
+//     nama_tipe: string;
+//     createdAt: Date;
+//     updatedAt: Date;
+//     deletedAt?: Date;
+// }
 
 export interface Ruangan {
     id: number;
-    kode_ruangan: string;
+    gedung: string;
     nama_ruangan: string;
-    kapasitas: number;
-    lokasi: string;
-    tipeRuanganId: number;
-    tipeRuangan: TipeRuangan;
-    kapasistas: number;
+    kode_ruangan: string;
 
     createdAt: Date;
     updatedAt: Date;
@@ -22,23 +18,14 @@ export interface Ruangan {
 }
 
 export interface CreateRuanganRequest {
-    id : number;
-    kode_ruangan: string;
+    gedung: string;
     nama_ruangan: string;
-    kapasitas: number;
-    lokasi: string;
-    tipeRuanganId: number;
+    kode_ruangan: string;
 }
 
 export interface UpdateRuanganRequest {
     id: number;
-    kode_ruangan?: string;
+    gedung?: string;
     nama_ruangan?: string;
-    kapasitas?: number;
-    lokasi?: string;
-    tipeRuanganId?: number;
-
-    updatedAt: Date;
-    deletedAt?: Date;
-    
+    kode_ruangan?: string;
 }
