@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyJWTToken } from "../utils/hash";
 import { isBlacklisted } from "../utils/jwt";
-import { roles } from "../models/user";
+import { Role as roles } from "../models/user";
 async function authMiddleware(req: Request, res: Response, next: NextFunction) {
        const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

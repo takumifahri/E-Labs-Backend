@@ -15,16 +15,26 @@ export async function HashPassword(password: string): Promise<string> {
         const hashedPassword = await argon2.hash(password);
         return hashedPassword;
     } catch (error) {
+        console.error('Error hashing password:', error);
         throw new Error('Error hashing password');
     }
 }
 
 export async function verifyPassword(hashPassword: string, password: string): Promise<boolean> {
     try {
+        // Pastikan parameter tidak null/undefined
+        if (!hashPassword || !password) {
+            console.error('Hash or password is empty');
+            return false;
+        }
+        
+        // argon2.verify(hash, plaintext)
         const isMatch = await argon2.verify(hashPassword, password);
         return isMatch;
     } catch (error) {
-        throw new Error('Error verifying password');
+        console.error('Error verifying password:', error);
+        // Return false instead of throwing error untuk better UX
+        return false;
     }
 }
 
@@ -35,6 +45,7 @@ export async function generateJWTToken(payload: string | object, expiresIn: stri
     return new Promise((resolve, reject) => {
         jwt.sign(payload, jwtSecret, { expiresIn: expiresIn as any }, (err, token) => {
             if (err || !token) {
+                console.error('Error generating JWT token:', err);
                 reject(new Error('Error generating JWT token'));
             } else {
                 resolve(token);
@@ -50,6 +61,7 @@ export async function verifyJWTToken(token: string): Promise<object | null> {
     return new Promise((resolve, reject) => {
         jwt.verify(token, jwtSecret, (err, decoded) => {
             if (err) {
+                console.error('Error verifying JWT token:', err);
                 reject(new Error('Invalid JWT token'));
             } else {
                 resolve(decoded as object);

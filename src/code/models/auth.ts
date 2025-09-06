@@ -1,11 +1,12 @@
-import { roles } from "./user";
+import { Role } from "./user";
 
 
 export interface RegisterRequest {
     email: string;
     password: string;
     nama: string;
-    roles: roles[keyof roles];
+    roles: Role[keyof Role];
+    roleId?: number;
 }
 
 export interface RegisterResponse {
@@ -14,8 +15,9 @@ export interface RegisterResponse {
     nama: string;
     semester?: string;
     address?: string;
-    nim?: string;
-    roles: roles[keyof roles];
+    NIP?: string;
+    NIM?: string;
+    roles: Role[keyof Role];
     createdAt: Date;
 }
 
@@ -28,10 +30,10 @@ export interface LoginResponse {
     uniqueId: string;
     email: string;
     nama: string;
-    roles: roles[keyof roles];
+    roles: Role[keyof Role];
     semester?: string;
     address?: string;
-    nim?: string; 
+    NIM?: string;
     isActive: boolean;
     token: string;
     createdAt: Date;

@@ -1,6 +1,7 @@
 export interface Role {
     id: number;
-    roleName: string;
+    nama_role: string;
+    deskripsi: string;
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date;
@@ -12,14 +13,12 @@ export interface User {
     nama: string;
     email: string;
     password: string;
-    isActive: boolean;
-    address?: string;
     roleId: number;
     role: Role;
-    nim?: string;
-    nip?: string;
+    NIM?: string;
+    NIP?: string;
     semester?: string;
-    photoProfile?: string;
+    profil?: string;
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date;
@@ -29,27 +28,27 @@ export interface CreateUserRequest {
     nama: string;
     email: string;
     password: string;
-    roleId: number;
+    roleId?: number; // Optional since it has default value 1
 }
 
 export interface UpdateUserRequest {
     nama?: string;
     email?: string;
     roleId?: number;
-    address?: string;
-    nim?: string;
-    nip?: string;
+    NIM?: string;
+    NIP?: string;
     semester?: string;
+    profil?: string;
 }
 
 export interface UserResponse {
     uniqueId: string;
     nama: string;
     email: string;
-    address?: string;
-    nim?: string;
-    nip?: string;
+    NIM?: string;
+    NIP?: string;
     semester?: string;
+    profil?: string;
     role: Role;
     createdAt: Date;
     updatedAt: Date;

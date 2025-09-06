@@ -15,86 +15,141 @@ datasource db {
 
 model User {
   id        Int     @id @default(autoincrement())
-  uniqueId  String  @unique
-  nama      String
+  uniqueId  String  @unique @default(cuid())
+  roleId   Int     @default(1)
+  semester  String?
+  profil    String?
   email     String  @unique
+  nama      String
+  NIM       String?
+  NIP       String?
   isActive  Boolean @default(false)
   password  String
-  address   String?
-  roleId    Int
-  role      Role    @relation(fields: [roleId], references: [id])
-  nim       String?
-  nip       String?
-  semester  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
-
-  plansForWho   Plan[] @relation("PlanForWho")
-  plansCreated  Plan[] @relation("PlanCreatedBy")
+  role      Role    @relation(fields: [roleId], references: [id])
+  
+  // Relasi ke peminjaman
+  peminjaman_items  Peminjaman_Item[] @relation("UserPeminjaman")
+  
+  // Relasi ke logs
+  logs      Log[]
 }
 
 model Role {
-  id        Int     @id @default(autoincrement())
-  roleName  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  deletedAt DateTime?
+  id          Int    @id @default(autoincrement())
+  deskripsi   String @default("Default Description")
+  nama_role   String @default("Default Role")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  users       User[]
+}
 
-  users     User[]
+model Kategori_Barang {
+  id             Int    @id @default(autoincrement())
+  nama_kategori  String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+  barangs        Barang[]
+}
+
+model Barang {
+  id              Int    @id @default(autoincrement())
+  kategori_id     Int
+  kode_barang     String @unique
+  nama_barang     String
+  merek           String?
+  kondisi         String
+  status          String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+  kategori        Kategori_Barang @relation(fields: [kategori_id], references: [id])
+  
+  // Relasi ke peminjaman handsets
+  peminjaman_handsets  Peminjaman_Handset[]
 }
 
 model Ruangan {
-  id        Int     @id @default(autoincrement())
-  nama_ruangan String 
-  nama_gedung  String
-  tipe_ruangan_id Int
-  tipe_ruangan Tipe_Ruangan @relation(fields: [tipe_ruangan_id], references: [id])
-  kapasitas Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  deletedAt DateTime?
+  id              Int    @id @default(autoincrement())
+  gedung          String
+  nama_ruangan    String
+  kode_ruangan    String @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+  // Relasi ke peminjaman ruangan
+  peminjaman_ruangans  Peminjaman_Ruangan[]
 }
 
-model Tipe_Ruangan {
-  id        Int     @id @default(autoincrement())
-  nama_tipe String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  deletedAt DateTime?
-
-  ruangan Ruangan[]
+model Peminjaman_Item {
+  id                Int      @id @default(autoincrement())
+  user_id           Int
+  barang_id         Int
+  estimasi_pinjam   DateTime
+  jam_kembali       DateTime?
+  jam_pinjam        DateTime
+  kode_peminjaman   String   @unique
+  tanggal_pinjam    DateTime
+  tanggal_kembali   DateTime?
+  status            String
+  kegiatan          String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  deletedAt         DateTime?
+  user              User     @relation("UserPeminjaman", fields: [user_id], references: [id])
 }
 
-
-model Project {
-  id            Int    @id @default(autoincrement())
-  uniqueId String @unique
-  projectName   String
-  clientName    String
-  projectFeature Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  deletedAt DateTime?
+model Peminjaman_Handset {
+  id                    Int      @id @default(autoincrement())
+  user_id               Int
+  barang_id             Int
+  peminjaman_handset_id Int
+  tanggal_pinjam        DateTime
+  tanggal_kembali       DateTime?
+  status                String
+  kegiatan              String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  deletedAt             DateTime?
+  barang                Barang   @relation(fields: [barang_id], references: [id])
 }
 
-enum StatusPlan {
-  notyet
-  onprogres
-  completed
+model Peminjaman_Ruangan {
+  id                     Int      @id @default(autoincrement())
+  ruangan_id             Int
+  user_id                Int
+  peminjaman_handset_id  Int
+  tanggal                DateTime
+  jam_mulai              DateTime
+  jam_selesai            DateTime
+  status                 String
+  kegiatan               String
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  deletedAt              DateTime?
+  ruangan                Ruangan  @relation(fields: [ruangan_id], references: [id])
 }
 
-model Plan {
-  id            Int    @id @default(autoincrement())
-  uniqueId String @unique
-  ForWho User @relation("PlanForWho", fields: [forWhoUid], references: [uniqueId])
-  forWhoUid String
-  createdBy User @relation("PlanCreatedBy", fields: [createdById], references: [uniqueId])
-  createdById String
-  Start DateTime
-  End DateTime
-  NamePlan String
-  Status StatusPlan
+model Log {
+  id            Int      @id @default(autoincrement())
+  user_id       Int
+  pesan         String
+  aksi          String
+  tabel_terkait String?
+  createdAt     DateTime @default(now())
+  
+  user          User     @relation(fields: [user_id], references: [id])
+}
+
+model Notifikasi {
+  id        Int      @id @default(autoincrement())
+  user_id   Int
+  pesan     String
+  send_at   DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?

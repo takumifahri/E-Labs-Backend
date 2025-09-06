@@ -56,9 +56,8 @@ const getUserById = async (req: express.Request, res: express.Response) => {
             uniqueId: user.uniqueId,
             nama: user.nama,
             email: user.email,
-            address: user.address ?? undefined,
-            nim: user.nim ?? undefined,
-            nip: user.nip ?? undefined,
+            NIM: user.NIM ?? undefined,
+            NIP: user.NIP ?? undefined,
             semester: user.semester ?? undefined,
             role: {
                 ...user.role,
@@ -80,17 +79,17 @@ const getUserById = async (req: express.Request, res: express.Response) => {
 
 const updateUser = async (req: express.Request, res: express.Response) => {
     const { uniqueId } = req.params;
-    const { nama, email, address, roleId, nim, nip, semester }: UpdateUserRequest = req.body;
+    const { nama, email,  roleId, NIM, NIP, semester }: UpdateUserRequest = req.body;
     try {
         const updatedUser = await prisma.user.update({
             where: { uniqueId },
             data: {
                 nama,
                 email,
-                address,
+                
                 roleId,
-                nim,
-                nip,
+                NIM,
+                NIP,
                 semester,
                 updatedAt: new Date()
             },
@@ -100,9 +99,8 @@ const updateUser = async (req: express.Request, res: express.Response) => {
             uniqueId: updatedUser.uniqueId,
             nama: updatedUser.nama,
             email: updatedUser.email,
-            address: updatedUser.address ?? undefined,
-            nim: updatedUser.nim ?? undefined,
-            nip: updatedUser.nip ?? undefined,
+            NIM: updatedUser.NIM ?? undefined,
+            NIP: updatedUser.NIP ?? undefined,
             semester: updatedUser.semester ?? undefined,
             role: {
                 ...updatedUser.role,
@@ -137,9 +135,8 @@ const ListUsers = async (req: express.Request, res: express.Response) => {
             uniqueId: user.uniqueId,
             nama: user.nama,
             email: user.email,
-            address: user.address ?? undefined,
-            nim: user.nim ?? undefined,
-            nip: user.nip ?? undefined,
+            NIM: user.NIM ?? undefined,
+            NIP: user.NIP ?? undefined,
             semester: user.semester ?? undefined,
             role: {
                 ...user.role,

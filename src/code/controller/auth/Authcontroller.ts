@@ -4,27 +4,34 @@ import { v4 as uuidv4 } from 'uuid';
 import { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse } from '../../models/auth';
 import { HashPassword, verifyPassword, generateJWTToken, verifyJWTToken } from '../../utils/hash';
 import { addToBlacklist } from '../../utils/jwt';
+
 const prisma = new PrismaClient();
 
 const Register = async (req: express.Request, res: express.Response) => {
-    // decalare the request body type
-    const { email, password, nama, roles }: RegisterRequest = req.body;
-    const uniqueId = `USR-${uuidv4()}`;
+    const { email, password, nama, roleId }: RegisterRequest = req.body;
+    // Determine prefix based on roleId
+    let prefix = 'USR'; // default
+    if (roleId === 1) prefix = 'MHS'; // Mahasiswa
+    else if (roleId === 2) prefix = 'DSN'; // Dosen
+    else if (roleId === 3) prefix = 'TKS'; // Teknisi
+    else if (roleId === 4) prefix = 'ADM'; // Superadmin
+    
+    const uniqueId = `${prefix}-${uuidv4()}`;
     const hashPassword = await HashPassword(password);
+    
     try {
         const findExistuser = await prisma.user.findUnique({
             where: { email }
-        })
+        });
 
         if (findExistuser) {
             return res.status(400).json({
-                message: "User already exists, please usee another email or Login"
+                message: "User already exists, please use another email or Login"
             });
         }
-        // set jika dia ga input roles dia auto user
-        if (!roles) {
-            req.body.roles = 'USER';
-        }
+
+        // Set default roleId jika tidak ada (misal roleId 1 untuk USER)
+        const defaultRoleId = roleId || 1;
 
         const registUser = await prisma.user.create({
             data: {
@@ -32,26 +39,26 @@ const Register = async (req: express.Request, res: express.Response) => {
                 email,
                 password: hashPassword,
                 nama,
-                roles: roles || 'user', // set default role to USER if not provided
+                roleId: defaultRoleId,
                 createdAt: new Date(),
-            }
-        })
+            },
+            include: { role: true }
+        });
 
         if (!registUser) {
             return res.status(400).json({ message: "User registration failed" });
         }
 
-        // Dto passby
         const responseRegist: RegisterResponse = {
             uniqueId: registUser.uniqueId,
             email: registUser.email,
             nama: registUser.nama,
-            roles: registUser.roles,
-            address: registUser.address ?? undefined,
-            nim: registUser.nim ?? undefined,
+            roles: registUser.role.nama_role,
+            NIM: registUser.NIM ?? undefined,
+            NIP: registUser.NIP ?? undefined,
             semester: registUser.semester ?? undefined,
             createdAt: registUser.createdAt
-        }
+        };
 
         return res.status(201).json({
             message: "User registered successfully",
@@ -61,17 +68,21 @@ const Register = async (req: express.Request, res: express.Response) => {
         console.error("Error during registration:", error);
         return res.status(500).json({ error: "Internal server error" });
     }
-}
-const Login = async (req: express.Request, res: express.Response) => {
-    const { email, password } : LoginRequest = req.body;
-    const ValidatingUser = await prisma.user.findUnique({
-        where: { email }    
-    });
-    if (!ValidatingUser) {
-        return res.status(400).json({ message: "Invalid email or password" });
-    }
+};
 
+const Login = async (req: express.Request, res: express.Response) => {
+    const { email, password }: LoginRequest = req.body;
+    
     try {
+        const ValidatingUser = await prisma.user.findUnique({
+            where: { email },
+            include: { role: true }
+        });
+
+        if (!ValidatingUser) {
+            return res.status(400).json({ message: "Invalid email or password" });
+        }
+
         const comparePassword = await verifyPassword(ValidatingUser.password, password);
         if (!comparePassword) {
             return res.status(400).json({ message: "Invalid email or password" });
@@ -86,17 +97,16 @@ const Login = async (req: express.Request, res: express.Response) => {
         const token = await generateJWTToken({
             uniqueId: ValidatingUser.uniqueId,
             email: ValidatingUser.email,
-            roles: ValidatingUser.roles
+            roleId: ValidatingUser.roleId,
+            nama_role: ValidatingUser.role.nama_role
         });
 
-        // DTO passby
         const loginResponse: LoginResponse = {
             uniqueId: ValidatingUser.uniqueId,
             email: ValidatingUser.email,
             nama: ValidatingUser.nama,
-            roles: ValidatingUser.roles,
-            nim: ValidatingUser.nim ?? undefined,
-            address: ValidatingUser.address ?? undefined,
+            roles: ValidatingUser.role.nama_role,
+            NIM: ValidatingUser.NIM ?? undefined,
             semester: ValidatingUser.semester ?? undefined,
             token: token,
             createdAt: ValidatingUser.createdAt,
@@ -108,19 +118,18 @@ const Login = async (req: express.Request, res: express.Response) => {
             data: loginResponse
         });
 
-    }catch (error) {
+    } catch (error) {
         console.error("Error during login:", error);
         return res.status(500).json({ error: "Internal server error" });
     }
-}
+};
 
 const Logout = async (req: express.Request, res: express.Response) => {
-    // Implement logout logic if needed, e.g., invalidate token
     const authHeader = req.headers.authorization;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1];
-         let decodedToken: any;
+        let decodedToken: any;
         try {
             decodedToken = await verifyJWTToken(token);
             if (!decodedToken || !decodedToken.uniqueId) {
@@ -129,6 +138,7 @@ const Logout = async (req: express.Request, res: express.Response) => {
         } catch (error) {
             return res.status(401).json({ message: "Unauthorized, invalid token" });
         }
+        
         await prisma.user.update({
             where: { uniqueId: decodedToken.uniqueId },
             data: { isActive: false }
@@ -136,11 +146,12 @@ const Logout = async (req: express.Request, res: express.Response) => {
         addToBlacklist(token);
     }
     return res.status(200).json({ message: "Logout successful" });
-}
+};
+
 const AuthController = {
     Register,
     Login,
     Logout
-}
+};
 
 export default AuthController;
