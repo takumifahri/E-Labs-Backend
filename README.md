@@ -97,5 +97,5 @@ Silakan buat pull request atau issue jika ingin berkontribusi atau menemukan bug
 
 ---
 
-**Solusi Trimitra Persada Backend**  
+**Backend E-Labs+**  
 Dibangun dengan Clean Architecture & TypeScript
