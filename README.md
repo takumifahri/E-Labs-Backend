@@ -75,11 +75,27 @@ src
 - `npm run seed` — Jalankan seeder
 - `npm run generate` — Generate Prisma Client
 
+## Glosarium
+
+| Istilah | Deskripsi |
+|---------|-----------|
+| **Clean Architecture** | Arsitektur perangkat lunak yang memisahkan concerns dan membuat kode lebih maintainable |
+| **Controller** | Layer yang menangani HTTP request dan response |
+| **DTO (Data Transfer Object)** | Objek untuk transfer data antar layer aplikasi |
+| **JWT (JSON Web Token)** | Standard untuk autentikasi berbasis token |
+| **Middleware** | Fungsi yang dijalankan di antara request dan response |
+| **Migration** | Script untuk mengubah struktur database |
+| **ORM (Object Relational Mapping)** | Tool untuk mapping database ke objek |
+| **Prisma** | ORM modern untuk Node.js dan TypeScript |
+| **Seeder** | Script untuk mengisi database dengan data awal |
+| **Supabase** | Platform Backend-as-a-Service dengan PostgreSQL |
+| **TypeScript** | Superset JavaScript dengan static typing |  
+
 ## Kontribusi
 
 Silakan buat pull request atau issue jika ingin berkontribusi atau menemukan bug.
 
 ---
 
-**Solusi Trimitra Persada Backend**  
+**Backend E-Labs+**  
 Dibangun dengan Clean Architecture & TypeScript
