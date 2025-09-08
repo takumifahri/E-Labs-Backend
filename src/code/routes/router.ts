@@ -2,13 +2,13 @@ import express from 'express';
 import UserController from '../controller/api/admin/userController';
 import AdminUserRouter from './admin/users';
 import authRouter from './auth/Auth';
-import RuanganRouter from './admin/ruangan';
+import master_ruangan_barang_router from './admin/master_ruangan_barang';
 // import PlanRouter from './admin/plan';
 const router = express.Router();
 
 // Ktia coba router grouping
 router.use('/admin/users', AdminUserRouter);
-router.use('/admin/ruangan', RuanganRouter);
+router.use('/admin/ruangan', master_ruangan_barang_router);
 
 // router.use('/admin/plans', PlanRouter);
 router.use('/auth', authRouter);
