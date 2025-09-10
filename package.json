@@ -19,7 +19,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Backend E-Labs+ untuk sistem peminjaman ruangan laboratorium di IPB University",
   "devDependencies": {
     "@types/argon2": "^0.14.1",
     "@types/cors": "^2.8.19",
