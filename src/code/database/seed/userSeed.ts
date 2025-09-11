@@ -32,7 +32,44 @@ async function main() {
       }
     });
   }
+  // Upsert prodi (create or update if exists)
+  const prodi = [
+    { id: 1, nama_prodi: "Komunikasi Digital dan Media", kode_prodi: "KMN" },
+    { id: 2, nama_prodi: "Ekowisata", kode_prodi: "EKW" },
+    { id: 3, nama_prodi: "Teknologi Rekayasa Perangkat Lunak", kode_prodi: "TRPL" },
+    { id: 4, nama_prodi: "Teknologi Rekayasa Komputer", kode_prodi: "TRK" },
+    { id: 5, nama_prodi: "Supervisor Jaminan Mutu Pangan", kode_prodi: "SJMP" },
+    { id: 6, nama_prodi: "Manajemen Industri Jasa Makanan dan Gizi", kode_prodi: "GZI" },
+    { id: 7, nama_prodi: "Teknologi dan Manajemen Pembenihan Ikan", kode_prodi: "IKN" },
+    { id: 8, nama_prodi: "Teknologi dan Manajemen Ternak", kode_prodi: "TNK" },
+    { id: 9, nama_prodi: "Manajemen Agribisnis", kode_prodi: "MAB" },
+    { id: 10, nama_prodi: "Manajemen Industri", kode_prodi: "MNI" },
+    { id: 11, nama_prodi: "Analisis Kimia", kode_prodi: "ANKIM" },
+    { id: 12, nama_prodi: "Teknik dan Manajemen Lingkungan", kode_prodi: "LNK" },
+    { id: 13, nama_prodi: "Akuntansi", kode_prodi: "AKN" },
+    { id: 14, nama_prodi: "Paramedik Veteriner", kode_prodi: "PVT" },
+    { id: 15, nama_prodi: "Teknologi dan Manajemen Produksi Perkebunan", kode_prodi: "TMP" },
+    { id: 16, nama_prodi: "Teknologi Produksi dan Pengembangan Masyarakat Pertanian", kode_prodi: "TIB" },
+  ];
+  for (const pd of prodi) {
+    await prisma.prodi.upsert({
+      where: { id: pd.id },
+      update: {
+        nama_prodi: pd.nama_prodi,
+        kode_prodi: pd.kode_prodi,
+        updatedAt: new Date()
+      },
+      create: {
+        id: pd.id,
+        nama_prodi: pd.nama_prodi,
+        kode_prodi: pd.kode_prodi,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+    });
+  }
 
+  console.log("✅ Prodi seed completed!");
   // Check and create users only if they don't exist
   const users = [
     {
@@ -41,6 +78,7 @@ async function main() {
       nama: "User One",
       password: "password1",
       roleId: 1,
+      prodiId: 1,
       NIM: "123456789",
       semester: "5",
     },
@@ -73,6 +111,7 @@ async function main() {
       nama: "User Five",
       password: "password5",
       roleId: 1,
+      prodiId: 2,
       NIM: "123456790",
       semester: "3",
     }
