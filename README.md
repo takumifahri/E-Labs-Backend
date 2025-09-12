@@ -8,6 +8,8 @@ Backend ini dibangun menggunakan **Node.js**, **Express**, dan **TypeScript** de
 - Seeder dan migrasi database dengan Prisma
 - Konfigurasi environment menggunakan dotenv
 - Middleware CORS dan custom
+- CRUD Logic User Management, Ruangan Master Manajemen
+- Auth, Profile
 
 ## Instalasi
 
@@ -97,5 +99,5 @@ Silakan buat pull request atau issue jika ingin berkontribusi atau menemukan bug
 
 ---
 
-**Solusi Trimitra Persada Backend**  
+**Backend E-Labs+**  
 Dibangun dengan Clean Architecture & TypeScript
