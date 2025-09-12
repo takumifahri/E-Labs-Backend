@@ -91,7 +91,6 @@ async function main() {
 
     if (!existingUser) {
       const hashedPassword = await HashPassword(userData.password);
-      
       await prisma.user.create({
         data: {
           ...userData,
