@@ -53,3 +53,9 @@ export interface UserResponse {
     createdAt: Date;
     updatedAt: Date;
 }
+
+export interface UpdatePassword {
+    oldPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+}
