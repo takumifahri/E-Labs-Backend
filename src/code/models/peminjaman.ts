@@ -61,9 +61,9 @@ export interface AjuanPeminjamanItemRequest {
     jam_pinjam?: Date;
     jam_kembali?: Date;
     estimasi_pinjam?: Date;
-    kondisi_pinjam?: PeminjamanItemStatus;
+    kondisi_pinjam?: string; // Changed from PeminjamanItemStatus to string
+    kegiatan?: string;
 }
-
 // Response Interfaces
 export interface PeminjamanHeaderResponse {
     id: number;
