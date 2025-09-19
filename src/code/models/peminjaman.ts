@@ -88,6 +88,7 @@ export interface PeminjamanRuangan {
         id: number;
         nama: string;
         email: string;
+        nim: string;
         uniqueId: string;
     };
     peminjaman_handset?: PeminjamanHandset;
