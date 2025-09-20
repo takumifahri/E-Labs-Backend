@@ -50,7 +50,7 @@ model MasterProdi {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
   users       User[]
-  matkul      Master_Matkul[]
+  matkul      master_matkul[]
 }
 
 model Role {
@@ -157,6 +157,8 @@ model Peminjaman_Ruangan {
   jam_selesai           DateTime
   status                String
   kegiatan              String
+  nim                   String               //nambah nim
+  matkul_id             Int?                 //nambah matkul apa
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
   deletedAt             DateTime?
@@ -164,6 +166,7 @@ model Peminjaman_Ruangan {
   ruangan             Ruangan              @relation(fields: [ruangan_id], references: [id])
   user                User                 @relation(fields: [user_id], references: [id])
   peminjaman_handset  Peminjaman_Handset?  @relation(fields: [peminjaman_handset_id], references: [id])
+  matkul              master_matkul?       @relation(fields: [matkul_id], references: [id])
 }
 
 model Log {
@@ -194,5 +197,6 @@ model Master_Matkul {
   id       Int        @id @default(autoincrement())
   prod_id  Int
   matkul   String
-  prodi    MasterProdi @relation(fields: [prod_id], references: [id])
+  prodi    Prodi @relation(fields: [prod_id], references: [id])
+  peminjaman_ruangan Peminjaman_Ruangan[]
 }

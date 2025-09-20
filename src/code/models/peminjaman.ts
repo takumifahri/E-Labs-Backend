@@ -42,11 +42,61 @@ export interface PeminjamanItem {
     kegiatan?: string | null;
     createdAt: Date;
     updatedAt: Date;
-    deletedAt?: Date | null;
+    deletedAt?: Date;
+    
+    // Relations (optional)
+    user?: {
+        id: number;
+        nama: string;
+        email: string;
+        uniqueId: string;
+    };
+    barang?: {
+        id: number;
+        nama_barang: string;
+        kode_barang: string;
+        kategori?: {
+            nama_kategori: string;
+        };
+    };
+    peminjaman_ruangan?: PeminjamanRuangan[];
 }
 
-// Peminjaman Headers dan Items Request
-export interface AjuanPeminjamanRequest {
+export interface PeminjamanRuangan {
+    id: number;
+    ruangan_id: number;
+    user_id: number;
+    peminjaman_handset_id?: number;
+    tanggal: Date; // Note: field name is 'tanggal', not 'tanggal_pinjam'
+    jam_mulai: Date; // Note: DateTime in schema
+    jam_selesai: Date; // Note: DateTime in schema
+    status: string;
+    kegiatan: string;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date;
+    
+    // Relations (optional)
+    ruangan?: {
+        id: number;
+        nama_ruangan: string;
+        kode_ruangan: string;
+        gedung: string;
+    };
+    user?: {
+        id: number;
+        nama: string;
+        email: string;
+        nim: string;
+        uniqueId: string;
+    };
+    peminjaman_handset?: PeminjamanHeader;
+}
+
+// Request interfaces for Peminjaman Item
+export interface CreatePeminjamanItemRequest {
+    barang_id: number;
+    jam_pinjam: Date;
     tanggal_pinjam: Date;
     tanggal_kembali?: Date;
     keperluan?: string;
