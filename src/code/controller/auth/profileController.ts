@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import { PrismaClient } from "@prisma/client";
-import { ProfileDto, UpdateProfileDto } from "../../../models/profile";
-import { HashPassword } from "../../../utils/hash";
-import { AppError, asyncHandler } from "../../../middleware/error";
-
+import { ProfileDto, UpdateProfileDto } from "../../models/profile";
+import { HashPassword, verifyPassword } from "../../utils/hash";
+import { AppError, asyncHandler } from "../../middleware/error";
+import { UpdatePassword } from "../../models/user";
+import { addToBlacklist } from "../../utils/jwt";
 declare global {
     namespace Express {
         interface Request {
@@ -16,7 +17,7 @@ const prisma = new PrismaClient();
 
 const WhoAmI = asyncHandler(async (req: Request, res: Response) => {
     const userPayload = req.user;
-
+    console.log("User Payload:", userPayload);
     if (!userPayload) {
         throw new AppError("Unauthorized - User not authenticated", 401);
     }
@@ -33,14 +34,14 @@ const WhoAmI = asyncHandler(async (req: Request, res: Response) => {
             }
         }
     });
-
+    console.log("User Data from DB:", userData);
     if (!userData) {
         throw new AppError("User not found", 404);
     }
 
-    if (!userData.isActive) {
-        throw new AppError("Account is deactivated", 403);
-    }
+    // if (userData.isActive) {
+    //     throw new AppError("Account is deactivated", 403);
+    // }
 
     const profileData: ProfileDto = {
         id: userData.id,
@@ -134,14 +135,18 @@ const UpdateProfile = asyncHandler(async (req: Request, res: Response) => {
 
 const ChangePassword = asyncHandler(async (req: Request, res: Response) => {
     const userPayload = req.user;
-    const { currentPassword, newPassword } = req.body;
+    const { oldPassword, newPassword, confirmPassword }: UpdatePassword = req.body;
 
     if (!userPayload) {
         throw new AppError("Unauthorized - User not authenticated", 401);
     }
 
-    if (!currentPassword || !newPassword) {
-        throw new AppError("Current password and new password are required", 400);
+    if (!oldPassword || !newPassword || !confirmPassword) {
+        throw new AppError("Old password, new password and confirm password are required", 400);
+    }
+
+    if (newPassword !== confirmPassword) {
+        throw new AppError("New password and confirm password do not match", 400);
     }
 
     const user = await prisma.user.findUnique({
@@ -152,12 +157,11 @@ const ChangePassword = asyncHandler(async (req: Request, res: Response) => {
         throw new AppError("User not found", 404);
     }
 
-    // Verify current password
-    const { verifyPassword } = await import("../../../utils/hash");
-    const isCurrentPasswordValid = await verifyPassword(user.password, currentPassword);
+    // Verify old password
+    const isOldPasswordValid = await verifyPassword(user.password, oldPassword);
 
-    if (!isCurrentPasswordValid) {
-        throw new AppError("Current password is incorrect", 400);
+    if (!isOldPasswordValid) {
+        throw new AppError("Old password is incorrect", 400);
     }
 
     // Hash new password
@@ -170,6 +174,13 @@ const ChangePassword = asyncHandler(async (req: Request, res: Response) => {
             updatedAt: new Date()
         }
     });
+
+    // extract token from Authorization header and add to blacklist if present
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+        const token = authHeader.slice(7);
+        addToBlacklist(token);
+    }
 
     res.status(200).json({
         message: "Password changed successfully"

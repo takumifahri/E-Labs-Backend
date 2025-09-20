@@ -7,7 +7,8 @@ import { AppError, asyncHandler } from '../../../middleware/error';
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: process.env.DATABASE_URL
+        
+      url: process.env.LOCAL_DATABASE_URL
     }
   }
 }).$extends(withAccelerate());

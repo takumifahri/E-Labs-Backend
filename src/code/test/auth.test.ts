@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import app from '../../cmd/app';
 import { v4 as uuidv4 } from 'uuid';
-import AuthController from '../../code/controller/api/auth/Authcontroller';
+import AuthController from '../controller/auth/Authcontroller';
 // import AuthController from '../controller/auth/Authcontroller';
 import { Request, Response, NextFunction } from 'express';
 
