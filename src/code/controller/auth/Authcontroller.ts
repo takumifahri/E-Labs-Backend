@@ -1,10 +1,10 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
-import { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse } from '../../../models/auth';
-import { HashPassword, verifyPassword, generateJWTToken, verifyJWTToken } from '../../../utils/hash';
-import { addToBlacklist } from '../../../utils/jwt';
-import { AppError, asyncHandler } from '../../../middleware/error';
+import { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse } from '../../models/auth';
+import { HashPassword, verifyPassword, generateJWTToken, verifyJWTToken } from '../../utils/hash';
+import { addToBlacklist } from '../../utils/jwt';
+import { AppError, asyncHandler } from '../../middleware/error';
 
 const prisma = new PrismaClient();
 
