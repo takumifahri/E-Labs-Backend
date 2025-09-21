@@ -7,7 +7,7 @@ import { Barang, BarangRespone, KondisiBarang, StatusBarang } from "../../../mod
 const prisma = new PrismaClient({
     datasources: {
         db: {
-            url: process.env.LOCAL_DATABASE_URL
+            url: process.env.DATABASE_URL
         }
     }
 }).$extends(withAccelerate());

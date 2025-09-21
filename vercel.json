@@ -12,5 +12,7 @@
             "dest": "api/index.ts"
         }
     ],
-    "buildCommand": "npm run build"
+    "env": {
+        "PRISMA_GENERATE_DATAPROXY": "true"
+    }
 }
