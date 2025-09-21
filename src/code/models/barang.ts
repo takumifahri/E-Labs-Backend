@@ -26,6 +26,7 @@ export interface Barang {
     nama_barang: string;
     merek: string;
     kondisi: KondisiBarang;
+    jumlah: number;
     status: StatusBarang;
     kategori_id: number;
     kategori: Kategori_Barang;
@@ -39,6 +40,7 @@ export interface BarangRespone {
     kode_barang: string;
     nama_barang: string;
     merek: string;
+    jumlah: number;
     kondisi: KondisiBarang;
     status: StatusBarang;
     kategori: Kategori_Barang;

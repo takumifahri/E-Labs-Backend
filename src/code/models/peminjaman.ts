@@ -104,15 +104,33 @@ export interface CreatePeminjamanItemRequest {
     items: AjuanPeminjamanItemRequest[];
 }
 
+export interface AjuanPeminjamanRequest {
+    tanggal_pinjam: Date;
+    tanggal_kembali?: Date;
+    keperluan?: string;
+    estimasi_pinjam?: Date;
+    items: AjuanPeminjamanItemRequest[];
+}
+
 export interface AjuanPeminjamanItemRequest {
     barang_id: number;
     jumlah?: number;
     jam_pinjam?: Date;
     jam_kembali?: Date;
     estimasi_pinjam?: Date;
-    kondisi_pinjam?: string; // Changed from PeminjamanItemStatus to string
+    kondisi_pinjam?: string;
     kegiatan?: string;
 }
+
+// export interface AjuanPeminjamanItemRequest {
+//     barang_id: number;
+//     jumlah?: number;
+//     jam_pinjam?: Date;
+//     jam_kembali?: Date;
+//     estimasi_pinjam?: Date;
+//     kondisi_pinjam?: string; // Changed from PeminjamanItemStatus to string
+//     kegiatan?: string;
+// }
 // Response Interfaces
 export interface PeminjamanHeaderResponse {
     id: number;
