@@ -11,6 +11,7 @@ export enum PeminjamanItemStatus {
     DIPINJAM = 'Dipinjam',
     DIKEMBALIKAN = 'Dikembalikan',
     TERLAMBAT = 'Terlambat',
+    DIAJUKAN = 'Diajukan',
 }
 
 export interface PeminjamanHeader {

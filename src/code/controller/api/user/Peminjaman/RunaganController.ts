@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { PrismaClient } from "@prisma/client";
 import { withAccelerate } from "@prisma/extension-accelerate";
 import { asyncHandler } from "../../../../middleware/error";
+import { CreateRuanganRequest } from "../../../../models/Ruangan";
 
 const prisma = new PrismaClient({
   datasources: {
@@ -9,9 +10,10 @@ const prisma = new PrismaClient({
       url: process.env.LOCAL_DATABASE_URL
     }
   }
-}).$extends(withAccelerate());
+})
 
-// Terjadwal
+// Terjadwal, Dia ga perlu login
 const PeminjamanRuanganTerjadwal = asyncHandler(async(req: Request, res: Response, next: NextFunction) => {
-    
+  const { gedung, nama_ruangan, kode_ruangan }: CreateRuanganRequest = req.body;
+
 })
