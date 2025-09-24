@@ -29,6 +29,7 @@ export interface PeminjamanHeader {
     updatedAt: Date;
     deletedAt?: Date | null;
 }
+
 export interface PeminjamanItem {
     id: number;
     peminjaman_id: number; // foreign key -> header
@@ -110,6 +111,7 @@ export interface AjuanPeminjamanRequest {
     tanggal_kembali?: Date;
     keperluan?: string;
     estimasi_pinjam?: Date;
+    Dokumen?: string ;
     items: AjuanPeminjamanItemRequest[];
 }
 

@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 // Remove withAccelerate import
 import { AppError, asyncHandler } from "../../../../middleware/error";
 import { AjuanPeminjamanRequest, PeminjamanHeader, PeminjamanHeaderStatus, PeminjamanItemStatus } from "../../../../models/peminjaman";
+import { uploadMiddlewares, FileHandler, UploadCategory } from '../../../../utils/FileHandler';
 
 // Remove Accelerate, use local database only
 const prisma = new PrismaClient({
@@ -219,6 +220,30 @@ const AjuanPeminjamanItems = asyncHandler(async (req: Request, res: Response, ne
         throw new AppError("User not found or inactive", 401);
     }
 
+    let Dokumen = null;
+    let DokumenUrl = null;
+    if (req.file) {
+        try{
+            Dokumen = req.file.filename;
+
+            const baseUrl = `${req.protocol}://${req.get('host')}`;
+            DokumenUrl = FileHandler.getFileUrl(UploadCategory.PEMINJAMAN_ITEM, Dokumen, baseUrl);
+
+            console.log(`📸 Barang image uploaded: ${Dokumen}`);
+        }catch( error ) {
+             console.error("File processing error:", error);
+            throw new AppError("Failed to process uploaded file", 500);
+        }
+    }
+    console.log('📝 Create data:', {
+        tanggal_pinjam: tanggal_pinjam,
+        tanggal_kembali: tanggal_kembali,
+        keperluan: keperluan,
+        estimasi_pinjam: estimasi_pinjam,
+        items: items,
+        Dokumen: Dokumen
+    });
+
     const userId = dbUser.id;
     const uniqueCode = `PMJ-${Date.now()}`;
 
@@ -226,7 +251,13 @@ const AjuanPeminjamanItems = asyncHandler(async (req: Request, res: Response, ne
         // Validate all barang exist and are available using cache
         const barangValidations = await Promise.all(
             items.map(async (item) => {
-                if (!item.barang_id || typeof item.barang_id !== 'number') {
+                console.log("Barang nya", item);
+                // Convert barang_id to number if it's a string
+                if (typeof item.barang_id === 'string') {
+                    item.barang_id = parseInt(item.barang_id, 10);
+                }
+                
+                if (!item.barang_id || isNaN(item.barang_id)) {
                     throw new AppError(`Invalid barang_id: ${item.barang_id}`, 400);
                 }
                 
@@ -275,6 +306,7 @@ const AjuanPeminjamanItems = asyncHandler(async (req: Request, res: Response, ne
                 status: PeminjamanHeaderStatus.PENDING,
                 user_id: userId,
                 barang_id: items[0].barang_id,
+                Dokumen: DokumenUrl
             }
         });
 
@@ -346,6 +378,7 @@ const AjuanPeminjamanItems = asyncHandler(async (req: Request, res: Response, ne
                 tanggal_kembali: result.header.tanggal_kembali,
                 status: result.header.status,
                 kegiatan: result.header.kegiatan,
+                Dokumen: result.header.Dokumen
             },
             items: result.items.map(item => ({
                 id: item.id,
@@ -450,71 +483,6 @@ const GetUserPeminjamanHistory = asyncHandler(async (req: Request, res: Response
     res.status(200).json(result);
 });
 
-// Get Available Barang untuk Peminjaman dengan cache
-const GetAvailableBarangForPeminjaman = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    const { kategori_id, search, page = 1, limit = 20 } = req.query;
-    const filters = { kategori_id, search, page: Number(page), limit: Number(limit) };
-    const cacheKey = getCacheKey('barang:available', filters);
-
-    // Try cache first
-    const cached = getCache(barangCache, cacheKey);
-    if (cached) {
-        return res.status(200).json({ 
-            ...cached, 
-            cached: true, 
-            cache_timestamp: new Date().toISOString()
-        });
-    }
-
-    const skip = (Number(page) - 1) * Number(limit);
-    const take = Number(limit);
-
-    const where: any = { 
-        deletedAt: null,
-        jumlah: { gt: 0 },
-        status: { in: ['Tersedia', 'Available'] }
-    };
-    
-    if (kategori_id) where.kategori_id = Number(kategori_id);
-    if (search) {
-        where.OR = [
-            { nama_barang: { contains: search as string, mode: 'insensitive' } },
-            { kode_barang: { contains: search as string, mode: 'insensitive' } },
-            { merek: { contains: search as string, mode: 'insensitive' } }
-        ];
-    }
-
-    const [barangs, total] = await Promise.all([
-        prisma.barang.findMany({
-            where,
-            ...optimizedBarangQuery,
-            skip,
-            take,
-            orderBy: { nama_barang: 'asc' }
-        }),
-        prisma.barang.count({ where })
-    ]);
-
-    const totalPages = Math.ceil(total / take);
-    const result = {
-        message: "Available barang retrieved successfully",
-        data: barangs,
-        pagination: {
-            current_page: Number(page),
-            total_pages: totalPages,
-            total_items: total,
-            items_per_page: take,
-            has_next_page: Number(page) < totalPages,
-            has_prev_page: Number(page) > 1
-        },
-        cached: false
-    };
-
-    setCache(barangCache, cacheKey, result, CACHE_CONFIG.BARANG_TTL);
-    
-    res.status(200).json(result);
-});
-
 // Get Cache Statistics
 const GetPeminjamanCacheStats = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const userStats = Array.from(userCache.entries()).map(([key, value]) => ({
@@ -589,7 +557,6 @@ const WarmPeminjamanCache = asyncHandler(async (req: Request, res: Response, nex
 const PeminjamanItemController = {
     AjuanPeminjamanItems,
     GetUserPeminjamanHistory,
-    GetAvailableBarangForPeminjaman,
     GetPeminjamanCacheStats,
     WarmPeminjamanCache
 }

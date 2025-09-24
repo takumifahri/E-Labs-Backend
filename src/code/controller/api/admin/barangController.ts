@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { PrismaClient } from "@prisma/client";
 import { AppError, asyncHandler } from "../../../middleware/error";
-import { Barang, BarangRespone, KondisiBarang, StatusBarang } from "../../../models/barang";
+import { Barang, BarangRequest, BarangRespone, KondisiBarang, StatusBarang } from "../../../models/barang";
+import { uploadMiddlewares, FileHandler, UploadCategory } from '../../../utils/FileHandler';
 
 // Remove Accelerate, use local database only
 const prisma = new PrismaClient({
@@ -237,179 +238,135 @@ const prewarmCaches = async () => {
     }
 };
 
-// Controllers
-const getAllBarang = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    const { page = 1, limit = 10, kategori_id, status, kondisi, search } = req.query;
-    const filters = { page: Number(page), limit: Number(limit), kategori_id, status, kondisi, search };
-    const cacheKey = getCacheKey('barang:list', filters);
+// // Controllers
+// const getAllBarang = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+//     const { page = 1, limit = 10, kategori_id, status, kondisi, search } = req.query;
+//     const filters = { page: Number(page), limit: Number(limit), kategori_id, status, kondisi, search };
+//     const cacheKey = getCacheKey('barang:list', filters);
 
-    // Try cache first
-    const cached = getCache(barangCache, cacheKey);
-    if (cached) {
-        return res.status(200).json({ 
-            ...cached, 
-            cached: true, 
-            cache_timestamp: new Date().toISOString(),
-            cache_stats: {
-                hits: barangCache.get(cacheKey)?.hits || 0,
-                total_cached_queries: barangCache.size
-            }
-        });
-    }
+//     // Try cache first
+//     const cached = getCache(barangCache, cacheKey);
+//     if (cached) {
+//         return res.status(200).json({ 
+//             ...cached, 
+//             cached: true, 
+//             cache_timestamp: new Date().toISOString(),
+//             cache_stats: {
+//                 hits: barangCache.get(cacheKey)?.hits || 0,
+//                 total_cached_queries: barangCache.size
+//             }
+//         });
+//     }
 
-    const skip = (Number(page) - 1) * Number(limit);
-    const take = Number(limit);
-    const where = buildWhereClause({ kategori_id, status, kondisi, search });
+//     const skip = (Number(page) - 1) * Number(limit);
+//     const take = Number(limit);
+//     const where = buildWhereClause({ kategori_id, status, kondisi, search });
 
-    // Parallel queries for better performance
-    const [barangs, total] = await Promise.all([
-        prisma.barang.findMany({
-            where,
-            ...optimizedBarangQuery,
-            skip,
-            take,
-            orderBy: { createdAt: 'desc' }
-        }),
-        prisma.barang.count({ where })
-    ]);
+//     // Parallel queries for better performance
+//     const [barangs, total] = await Promise.all([
+//         prisma.barang.findMany({
+//             where,
+//             ...optimizedBarangQuery,
+//             skip,
+//             take,
+//             orderBy: { createdAt: 'desc' }
+//         }),
+//         prisma.barang.count({ where })
+//     ]);
 
-    const totalPages = Math.ceil(total / take);
-    const result = {
-        message: "Barang retrieved successfully",
-        data: barangs,
-        pagination: {
-            current_page: Number(page),
-            total_pages: totalPages,
-            total_items: total,
-            items_per_page: take,
-            has_next_page: Number(page) < totalPages,
-            has_prev_page: Number(page) > 1
-        },
-        cached: false,
-        query_time: new Date().toISOString()
-    };
+//     const totalPages = Math.ceil(total / take);
+//     const result = {
+//         message: "Barang retrieved successfully",
+//         data: barangs,
+//         pagination: {
+//             current_page: Number(page),
+//             total_pages: totalPages,
+//             total_items: total,
+//             items_per_page: take,
+//             has_next_page: Number(page) < totalPages,
+//             has_prev_page: Number(page) > 1
+//         },
+//         cached: false,
+//         query_time: new Date().toISOString()
+//     };
 
-    // Cache the result
-    setCache(barangCache, cacheKey, result);
+//     // Cache the result
+//     setCache(barangCache, cacheKey, result);
     
-    // Background prewarm (non-blocking)
-    if (barangCache.size < 50) { // Only prewarm if cache is not too full
-        setImmediate(() => prewarmCaches());
-    }
+//     // Background prewarm (non-blocking)
+//     if (barangCache.size < 50) { // Only prewarm if cache is not too full
+//         setImmediate(() => prewarmCaches());
+//     }
 
-    res.status(200).json(result);
-});
+//     res.status(200).json(result);
+// });
 
-const getBarangById = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
-    if (!id || isNaN(Number(id))) {
-        throw new AppError("Invalid barang ID", 400);
-    }
+// const getBarangById = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+//     const { id } = req.params;
+//     if (!id || isNaN(Number(id))) {
+//         throw new AppError("Invalid barang ID", 400);
+//     }
 
-    const cacheKey = getCacheKey('barang:detail', { id: Number(id) });
-    const cached = getCache(barangCache, cacheKey);
+//     const cacheKey = getCacheKey('barang:detail', { id: Number(id) });
+//     const cached = getCache(barangCache, cacheKey);
     
-    if (cached) {
-        return res.status(200).json({ 
-            ...cached, 
-            cached: true, 
-            cache_timestamp: new Date().toISOString(),
-            cache_hits: barangCache.get(cacheKey)?.hits || 0
-        });
-    }
+//     if (cached) {
+//         return res.status(200).json({ 
+//             ...cached, 
+//             cached: true, 
+//             cache_timestamp: new Date().toISOString(),
+//             cache_hits: barangCache.get(cacheKey)?.hits || 0
+//         });
+//     }
 
-    const barang = await prisma.barang.findFirst({
-        where: { id: Number(id), deletedAt: null },
-        ...optimizedBarangQuery
-    });
+//     const barang = await prisma.barang.findFirst({
+//         where: { id: Number(id), deletedAt: null },
+//         ...optimizedBarangQuery
+//     });
 
-    if (!barang) {
-        throw new AppError("Barang not found", 404);
-    }
+//     if (!barang) {
+//         throw new AppError("Barang not found", 404);
+//     }
 
-    const result = { 
-        message: "Barang retrieved successfully", 
-        data: barang, 
-        cached: false 
-    };
+//     const result = { 
+//         message: "Barang retrieved successfully", 
+//         data: barang, 
+//         cached: false 
+//     };
     
-    // Cache with longer TTL for details
-    setCache(barangCache, cacheKey, result, CACHE_CONFIG.DETAIL_TTL);
+//     // Cache with longer TTL for details
+//     setCache(barangCache, cacheKey, result, CACHE_CONFIG.DETAIL_TTL);
 
-    res.status(200).json(result);
-});
-
-const createBarang = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    const { kode_barang, nama_barang, merek, kondisi, jumlah, status, kategori_id } = req.body;
-    
-    if (!kode_barang || !nama_barang || !kondisi || !status || !kategori_id) {
-        throw new AppError("Required fields: kode_barang, nama_barang, kondisi, status, kategori_id", 400);
-    }
-
-    // Validate uniqueness
-    const existing = await prisma.barang.findUnique({ 
-        where: { kode_barang },
-        select: { id: true } // Optimize query
-    });
-    
-    if (existing) {
-        throw new AppError("Kode barang already exists", 409);
-    }
-
-    // Validate category from cache first
-    const kategoryCacheKey = 'kategori:all';
-    let categories = getCache(kategoriCache, kategoryCacheKey);
-    
-    if (!categories) {
-        categories = await prisma.kategori_Barang.findMany({
-            where: { deletedAt: null },
-            select: { id: true, nama_kategori: true }
-        });
-        setCache(kategoriCache, kategoryCacheKey, categories, CACHE_CONFIG.KATEGORI_TTL);
-    }
-
-    const kategoriExists = categories.find((k: any) => k.id === Number(kategori_id));
-    if (!kategoriExists) {
-        throw new AppError("Kategori not found", 404);
-    }
-
-    const newBarang = await prisma.barang.create({
-        data: {
-            kode_barang,
-            nama_barang,
-            merek: merek || "",
-            kondisi,
-            jumlah: Number(jumlah) || 0,
-            status,
-            kategori_id: Number(kategori_id)
-        },
-        ...optimizedBarangQuery
-    });
-
-    // Clear all related caches
-    clearAllRelatedCaches();
-    
-    // Trigger background cache refresh
-    setImmediate(() => prewarmCaches());
-
-    res.status(201).json({ 
-        message: "Barang created successfully", 
-        data: newBarang,
-        cache_cleared: true
-    });
-});
+//     res.status(200).json(result);
+// });
 
 const updateBarang = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const { kode_barang, nama_barang, merek, kondisi, jumlah, status, kategori_id } = req.body;
     
     if (!id || isNaN(Number(id))) {
         throw new AppError("Invalid barang ID", 400);
     }
 
+    // Debug logging untuk troubleshooting
+    console.log('🔍 Update Barang Debug:');
+    console.log('Request body:', req.body);
+    console.log('Request file:', req.file);
+    console.log('Content-Type:', req.headers['content-type']);
+
+    // Safe destructuring dengan default values
+    const {
+        kode_barang = undefined,
+        nama_barang = undefined,
+        merek = undefined,
+        kondisi = undefined,
+        jumlah = undefined,
+        status = undefined,
+        kategori_id = undefined
+    } = req.body || {};
+
     const existing = await prisma.barang.findFirst({ 
         where: { id: Number(id), deletedAt: null },
-        select: { id: true, kode_barang: true, kategori_id: true, status: true }
+        select: { id: true, kode_barang: true, kategori_id: true, status: true, foto_barang: true }
     });
     
     if (!existing) {
@@ -447,17 +404,74 @@ const updateBarang = asyncHandler(async (req: Request, res: Response, next: Next
         }
     }
 
-    // Build update data
-    const updateData: any = {};
-    if (kode_barang !== undefined) updateData.kode_barang = kode_barang;
-    if (nama_barang !== undefined) updateData.nama_barang = nama_barang;
-    if (merek !== undefined) updateData.merek = merek;
-    if (kondisi !== undefined) updateData.kondisi = kondisi;
-    if (jumlah !== undefined) updateData.jumlah = Number(jumlah);
-    if (status !== undefined) updateData.status = status;
-    if (kategori_id !== undefined) updateData.kategori_id = Number(kategori_id);
+    // Handle file upload if present (optional)
+    let newFotoBarang = existing.foto_barang; // Keep existing if no new file
+    let imageUrl = null;
     
-    updateData.updatedAt = new Date();
+    if (req.file) {
+        try {
+            // Delete old image if exists
+            if (existing.foto_barang) {
+                const deleteSuccess = await FileHandler.deleteFile(UploadCategory.BARANG, existing.foto_barang);
+                if (deleteSuccess) {
+                    console.log(`🗑️  Deleted old barang image: ${existing.foto_barang}`);
+                }
+            }
+            
+            newFotoBarang = req.file.filename; // Use new filename
+            
+            // Generate image URL for response
+            const baseUrl = `${req.protocol}://${req.get('host')}`;
+            imageUrl = FileHandler.getFileUrl(UploadCategory.BARANG, newFotoBarang, baseUrl);
+            
+            console.log(`📸 Barang image updated: ${newFotoBarang}`);
+        } catch (error) {
+            console.error("File processing error:", error);
+            throw new AppError("Failed to process uploaded file", 500);
+        }
+    } else if (existing.foto_barang) {
+        // Generate URL for existing image
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        imageUrl = FileHandler.getFileUrl(UploadCategory.BARANG, existing.foto_barang, baseUrl);
+    }
+
+    // Build update data dengan checking yang lebih robust
+    const updateData: any = { updatedAt: new Date() };
+    
+    // Only update fields that are actually provided and not empty
+    if (kode_barang !== undefined && kode_barang !== '') {
+        updateData.kode_barang = kode_barang;
+    }
+    if (nama_barang !== undefined && nama_barang !== '') {
+        updateData.nama_barang = nama_barang;
+    }
+    if (merek !== undefined) {
+        updateData.merek = merek || "";
+    }
+    if (kondisi !== undefined && kondisi !== '') {
+        updateData.kondisi = kondisi;
+    }
+    if (jumlah !== undefined && jumlah !== '') {
+        updateData.jumlah = Number(jumlah);
+    }
+    if (status !== undefined && status !== '') {
+        updateData.status = status;
+    }
+    if (kategori_id !== undefined && kategori_id !== '') {
+        updateData.kategori_id = Number(kategori_id);
+    }
+    if (req.file) {
+        updateData.foto_barang = newFotoBarang; // Only update if new file uploaded
+    }
+
+    // Check if there's anything to update
+    if (Object.keys(updateData).length === 1) { // Only updatedAt
+        if (!req.file) {
+            throw new AppError("No data provided to update", 400);
+        }
+    }
+
+    console.log('📝 Update data:', updateData);
 
     const updated = await prisma.barang.update({
         where: { id: Number(id) },
@@ -471,13 +485,293 @@ const updateBarang = asyncHandler(async (req: Request, res: Response, next: Next
     // Trigger background cache refresh
     setImmediate(() => prewarmCaches());
 
+    // Prepare response with image URL
+    const responseData = {
+        ...updated,
+        foto_barang_url: imageUrl
+    };
+
     res.status(200).json({ 
         message: "Barang updated successfully", 
-        data: updated,
-        cache_cleared: true
+        data: responseData,
+        cache_cleared: true,
+        file_info: req.file ? {
+            original_name: req.file.originalname,
+            filename: newFotoBarang,
+            size: FileHandler.formatFileSize(req.file.size),
+            mime_type: req.file.mimetype,
+            old_file_deleted: existing.foto_barang ? true : false
+        } : null,
+        updated_fields: Object.keys(updateData).filter(key => key !== 'updatedAt')
     });
 });
 
+// Juga perbaiki createBarang dengan safe destructuring
+const createBarang = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    // Debug logging untuk troubleshooting
+    console.log('🔍 Create Barang Debug:');
+    console.log('Request body:', req.body);
+    console.log('Request file:', req.file);
+    console.log('Content-Type:', req.headers['content-type']);
+
+    // Safe destructuring dengan default values
+    const {
+        kode_barang,
+        nama_barang,
+        merek,
+        kondisi,
+        jumlah,
+        status,
+        kategori_id
+    }: BarangRequest = req.body || {};
+
+    // Validation dengan lebih robust checking
+    if (!kode_barang || kode_barang.trim() === '') {
+        throw new AppError("kode_barang is required", 400);
+    }
+    if (!nama_barang || nama_barang.trim() === '') {
+        throw new AppError("nama_barang is required", 400);
+    }
+    if (!kondisi || kondisi.trim() === '') {
+        throw new AppError("kondisi is required", 400);
+    }
+    if (!status || status.trim() === '') {
+        throw new AppError("status is required", 400);
+    }
+    if (!kategori_id || kategori_id === 0) {
+        throw new AppError("kategori_id is required", 400);
+    }
+
+    // Validate uniqueness
+    const existing = await prisma.barang.findUnique({ 
+        where: { kode_barang: kode_barang.trim() },
+        select: { id: true } // Optimize query
+    });
+    
+    if (existing) {
+        throw new AppError("Kode barang already exists", 409);
+    }
+
+    // Handle file upload if present (nullable)
+    let foto_barang = null;
+    let imageUrl = null;
+    
+    if (req.file) {
+        try {
+            foto_barang = req.file.filename; // File sudah di-upload oleh middleware
+            
+            // Generate image URL for response
+            const baseUrl = `${req.protocol}://${req.get('host')}`;
+            imageUrl = FileHandler.getFileUrl(UploadCategory.BARANG, foto_barang, baseUrl);
+            
+            console.log(`📸 Barang image uploaded: ${foto_barang}`);
+        } catch (error) {
+            console.error("File processing error:", error);
+            throw new AppError("Failed to process uploaded file", 500);
+        }
+    }
+
+    // Validate category from cache first
+    const kategoryCacheKey = 'kategori:all';
+    let categories = getCache(kategoriCache, kategoryCacheKey);
+    
+    if (!categories) {
+        categories = await prisma.kategori_Barang.findMany({
+            where: { deletedAt: null },
+            select: { id: true, nama_kategori: true }
+        });
+        setCache(kategoriCache, kategoryCacheKey, categories, CACHE_CONFIG.KATEGORI_TTL);
+    }
+
+    const kategoriExists = categories.find((k: any) => k.id === Number(kategori_id));
+    if (!kategoriExists) {
+        throw new AppError("Kategori not found", 404);
+    }
+
+    console.log('📝 Create data:', {
+        kode_barang: kode_barang.trim(),
+        nama_barang: nama_barang.trim(),
+        merek: merek || "",
+        kondisi,
+        jumlah: Number(jumlah) || 0,
+        status,
+        kategori_id: Number(kategori_id),
+        foto_barang
+    });
+
+    const newBarang = await prisma.barang.create({
+        data: {
+            kode_barang: kode_barang.trim(),
+            nama_barang: nama_barang.trim(),
+            merek: merek || "",
+            kondisi,
+            jumlah: Number(jumlah) || 0,
+            status,
+            kategori_id: Number(kategori_id),
+            foto_barang // Save filename to database (nullable)
+        },
+        ...optimizedBarangQuery
+    });
+
+    // Clear all related caches
+    clearAllRelatedCaches();
+    
+    // Trigger background cache refresh
+    setImmediate(() => prewarmCaches());
+
+    // Prepare response with image URL
+    const responseData = {
+        ...newBarang,
+        foto_barang_url: imageUrl // Add image URL to response
+    };
+
+    res.status(201).json({ 
+        message: "Barang created successfully", 
+        data: responseData,
+        cache_cleared: true,
+        file_info: req.file ? {
+            original_name: req.file.originalname,
+            filename: foto_barang,
+            size: FileHandler.formatFileSize(req.file.size),
+            mime_type: req.file.mimetype
+        } : null
+    });
+});
+
+// Enhanced getAllBarang to include image URLs
+const getAllBarang = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const { page = 1, limit = 10, kategori_id, status, kondisi, search } = req.query;
+    const filters = { page: Number(page), limit: Number(limit), kategori_id, status, kondisi, search };
+    const cacheKey = getCacheKey('barang:list', filters);
+
+    // Try cache first
+    const cached = getCache(barangCache, cacheKey);
+    if (cached) {
+        // Add image URLs to cached data
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        const dataWithUrls = cached.data.map((item: any) => ({
+            ...item,
+            foto_barang_url: item.foto_barang ? FileHandler.getFileUrl(UploadCategory.BARANG, item.foto_barang, baseUrl) : null
+        }));
+        
+        return res.status(200).json({ 
+            ...cached,
+            data: dataWithUrls,
+            cached: true, 
+            cache_timestamp: new Date().toISOString(),
+            cache_stats: {
+                hits: barangCache.get(cacheKey)?.hits || 0,
+                total_cached_queries: barangCache.size
+            }
+        });
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+    const take = Number(limit);
+    const where = buildWhereClause({ kategori_id, status, kondisi, search });
+
+    // Parallel queries for better performance
+    const [barangs, total] = await Promise.all([
+        prisma.barang.findMany({
+            where,
+            ...optimizedBarangQuery,
+            skip,
+            take,
+            orderBy: { createdAt: 'desc' }
+        }),
+        prisma.barang.count({ where })
+    ]);
+
+    // Add image URLs to response
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const barangsWithUrls = barangs.map(barang => ({
+        ...barang,
+        foto_barang_url: barang.foto_barang ? FileHandler.getFileUrl(UploadCategory.BARANG, barang.foto_barang, baseUrl) : null
+    }));
+
+    const totalPages = Math.ceil(total / take);
+    const result = {
+        message: "Barang retrieved successfully",
+        data: barangsWithUrls,
+        pagination: {
+            current_page: Number(page),
+            total_pages: totalPages,
+            total_items: total,
+            items_per_page: take,
+            has_next_page: Number(page) < totalPages,
+            has_prev_page: Number(page) > 1
+        },
+        cached: false,
+        query_time: new Date().toISOString()
+    };
+
+    // Cache the result (without URLs to save space)
+    setCache(barangCache, cacheKey, { ...result, data: barangs });
+    
+    // Background prewarm (non-blocking)
+    if (barangCache.size < 50) { // Only prewarm if cache is not too full
+        setImmediate(() => prewarmCaches());
+    }
+
+    res.status(200).json(result);
+});
+
+// Enhanced getBarangById to include image URL
+const getBarangById = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+    if (!id || isNaN(Number(id))) {
+        throw new AppError("Invalid barang ID", 400);
+    }
+
+    const cacheKey = getCacheKey('barang:detail', { id: Number(id) });
+    const cached = getCache(barangCache, cacheKey);
+    
+    if (cached) {
+        // Add image URL to cached data
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        const dataWithUrl = {
+            ...cached.data,
+            foto_barang_url: cached.data.foto_barang ? FileHandler.getFileUrl(UploadCategory.BARANG, cached.data.foto_barang, baseUrl) : null
+        };
+        
+        return res.status(200).json({ 
+            ...cached,
+            data: dataWithUrl,
+            cached: true, 
+            cache_timestamp: new Date().toISOString(),
+            cache_hits: barangCache.get(cacheKey)?.hits || 0
+        });
+    }
+
+    const barang = await prisma.barang.findFirst({
+        where: { id: Number(id), deletedAt: null },
+        ...optimizedBarangQuery
+    });
+
+    if (!barang) {
+        throw new AppError("Barang not found", 404);
+    }
+
+    // Add image URL to response
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const barangWithUrl = {
+        ...barang,
+        foto_barang_url: barang.foto_barang ? FileHandler.getFileUrl(UploadCategory.BARANG, barang.foto_barang, baseUrl) : null
+    };
+
+    const result = { 
+        message: "Barang retrieved successfully", 
+        data: barangWithUrl, 
+        cached: false 
+    };
+    
+    // Cache with longer TTL for details (cache without URL)
+    setCache(barangCache, cacheKey, { ...result, data: barang }, CACHE_CONFIG.DETAIL_TTL);
+
+    res.status(200).json(result);
+});
+
+// Enhanced deleteBarang to also delete image
 const deleteBarang = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     
@@ -487,7 +781,7 @@ const deleteBarang = asyncHandler(async (req: Request, res: Response, next: Next
 
     const existing = await prisma.barang.findFirst({ 
         where: { id: Number(id), deletedAt: null },
-        select: { id: true, nama_barang: true, kode_barang: true }
+        select: { id: true, nama_barang: true, kode_barang: true, foto_barang: true }
     });
     
     if (!existing) {
@@ -508,6 +802,20 @@ const deleteBarang = asyncHandler(async (req: Request, res: Response, next: Next
         throw new AppError("Cannot delete barang that is currently borrowed or pending", 400);
     }
 
+    // Delete associated image file if exists
+    let imageDeleted = false;
+    if (existing.foto_barang) {
+        try {
+            imageDeleted = await FileHandler.deleteFile(UploadCategory.BARANG, existing.foto_barang);
+            if (imageDeleted) {
+                console.log(`🗑️  Deleted barang image: ${existing.foto_barang}`);
+            }
+        } catch (error) {
+            console.error("Error deleting image file:", error);
+            // Continue with deletion even if image deletion fails
+        }
+    }
+
     const deleted = await prisma.barang.update({ 
         where: { id: Number(id) }, 
         data: { 
@@ -524,10 +832,11 @@ const deleteBarang = asyncHandler(async (req: Request, res: Response, next: Next
     res.status(200).json({ 
         message: "Barang deleted successfully", 
         data: deleted,
-        cache_cleared: true
+        cache_cleared: true,
+        image_deleted: imageDeleted,
+        image_filename: existing.foto_barang
     });
 });
-
 const restoreBarang = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     

@@ -33,12 +33,13 @@ async function authMiddleware(req: Request, res: Response, next: NextFunction) {
 function Checkroles(requiredRoles: string[]) {
     return (req: Request, res: Response, next: NextFunction) => {
         const user = req.user;
-        
-        if (!user || !user.role) {
+        console.log('user: ', user)
+        console.log('Roles User:', user.nama_role)
+        if (!user || !user.nama_role) {
             return res.status(403).json({ message: 'Forbidden - No role found' });
         }
         
-        if (requiredRoles.includes(user.role)) {
+        if (requiredRoles.includes(user.nama_role)) {
             return next();
         }
         

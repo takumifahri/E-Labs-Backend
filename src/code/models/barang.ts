@@ -30,6 +30,8 @@ export interface Barang {
     status: StatusBarang;
     kategori_id: number;
     kategori: Kategori_Barang;
+    foto_barang?: string;
+
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date;
@@ -44,6 +46,8 @@ export interface BarangRespone {
     kondisi: KondisiBarang;
     status: StatusBarang;
     kategori: Kategori_Barang;
+    foto_barang?: string;
+    
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date;
@@ -58,6 +62,9 @@ export interface BarangRequest {
     status: StatusBarang;
     kategori_id: number;
     kategori: Kategori_Barang;
+    foto_barang?: string;
+    jumlah: number;
+    
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date;

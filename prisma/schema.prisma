@@ -81,6 +81,7 @@ model Barang {
   kondisi             String
   jumlah              Int                 @default(0)
   status              String
+  foto_barang         String?              
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   deletedAt           DateTime?
@@ -139,6 +140,7 @@ model Peminjaman_Handset {
   tanggal_kembali       DateTime?
   status                String
   kegiatan              String
+  Dokumen               String?    
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
   deletedAt             DateTime?
