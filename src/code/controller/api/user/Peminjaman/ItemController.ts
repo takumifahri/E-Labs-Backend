@@ -193,7 +193,6 @@ const getCachedBarang = async (id: number) => {
     
     return barang;
 };
-
 // Ajuan Peminjaman Items dengan optimisasi cache
 const AjuanPeminjamanItems = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const { tanggal_pinjam, tanggal_kembali, keperluan, estimasi_pinjam, items }: AjuanPeminjamanRequest = req.body;
@@ -266,17 +265,33 @@ const AjuanPeminjamanItems = asyncHandler(async (req: Request, res: Response, ne
                 if (!barang) {
                     throw new AppError(`Barang with ID ${item.barang_id} not found`, 404);
                 }
+
+                // Ensure jumlah is a number and at least 1
+                const requestedQuantity = item.jumlah && !isNaN(Number(item.jumlah)) ? Number(item.jumlah) : 1;
+                
+                if (requestedQuantity < 1) {
+                    throw new AppError(`Requested quantity must be at least 1`, 400);
+                }
+                
                 if (barang.jumlah < 1) {
                     throw new AppError(`Barang ${barang.nama_barang} is out of stock`, 400);
                 }
-                if (barang.jumlah < (item.jumlah || 1)) {
-                    throw new AppError(`Not enough stock for ${barang.nama_barang}. Available: ${barang.jumlah}, Requested: ${item.jumlah || 1}`, 400);
+                
+                if (barang.jumlah < requestedQuantity) {
+                    throw new AppError(`Not enough stock for ${barang.nama_barang}. Available: ${barang.jumlah}, Requested: ${requestedQuantity}`, 400);
                 }
                 
-                return { item, barang };
+                return { 
+                    item: {
+                        ...item,
+                        jumlah: requestedQuantity
+                    }, 
+                    barang 
+                };
             })
         );
-        // Check dulu apakah dia sudah meminjam barang yg diingin
+        
+        // Check if user already borrowed any of these items
         const alreadyBorrowed = await Promise.all(
             barangValidations.map(async ({ item, barang }) => {
                 const existing = await prisma.peminjaman_Item.findFirst({
@@ -293,30 +308,33 @@ const AjuanPeminjamanItems = asyncHandler(async (req: Request, res: Response, ne
                 return null;
             })
         );
+        
         if (alreadyBorrowed.some(x => x !== null)) {
             throw new AppError("One or more items have already been borrowed or requested", 400);
         }
+        
         // Create Peminjaman_Handset as header
         const peminjaman_header = await prisma.peminjaman_Handset.create({
             data: {
                 kode_peminjaman: uniqueCode,
                 tanggal_pinjam: new Date(tanggal_pinjam),
                 tanggal_kembali: tanggal_kembali ? new Date(tanggal_kembali) : null,
-                kegiatan: keperluan || "",
+                kegiatan: keperluan || "Acara Kuliah",
                 status: PeminjamanHeaderStatus.PENDING,
                 user_id: userId,
-                barang_id: items[0].barang_id,
+                barang_id: barangValidations[0].item.barang_id,
                 Dokumen: DokumenUrl
             }
         });
 
-        // Create multiple Peminjaman_Item records
+        // Create multiple Peminjaman_Item records with proper jumlah values
         const created_items = await Promise.all(
-            items.map(async (item, index) => {
+            barangValidations.map(async ({ item }, index) => {
                 return await prisma.peminjaman_Item.create({
                     data: {
                         user_id: userId,
                         barang_id: item.barang_id,
+                        jumlah: item.jumlah,  // Set the requested quantity
                         estimasi_pinjam: item.estimasi_pinjam ? new Date(item.estimasi_pinjam) : new Date(estimasi_pinjam || tanggal_pinjam),
                         jam_pinjam: item.jam_pinjam ? new Date(item.jam_pinjam) : new Date(),
                         jam_kembali: item.jam_kembali ? new Date(item.jam_kembali) : null,
@@ -331,16 +349,17 @@ const AjuanPeminjamanItems = asyncHandler(async (req: Request, res: Response, ne
             })
         );
 
-        // Update barang quantities and status in batch
-        const barangUpdates = items.map(async (item) => {
+        // Update barang quantities and status based on borrowed quantities
+        const barangUpdates = barangValidations.map(async ({ item }) => {
             const barang = await prisma.barang.findUnique({
                 where: { id: item.barang_id },
                 select: { id: true, jumlah: true }
             });
             
             if (barang) {
-                const newJumlah = barang.jumlah - (item.jumlah || 1);
-                console.log(`Updating barang ID ${barang.id}: ${barang.jumlah} -> ${newJumlah}`);
+                const newJumlah = Math.max(0, barang.jumlah - item.jumlah);
+                console.log(`Updating barang ID ${barang.id}: ${barang.jumlah} -> ${newJumlah} (subtracting ${item.jumlah})`);
+                
                 return prisma.barang.update({
                     where: { id: item.barang_id },
                     data: { 
@@ -354,7 +373,7 @@ const AjuanPeminjamanItems = asyncHandler(async (req: Request, res: Response, ne
         await Promise.all(barangUpdates.filter(Boolean));
 
         // Invalidate barang cache for updated items
-        items.forEach(item => {
+        barangValidations.forEach(({ item }) => {
             const barangCacheKey = getCacheKey('barang', { id: item.barang_id });
             barangCache.delete(barangCacheKey);
         });
@@ -383,6 +402,7 @@ const AjuanPeminjamanItems = asyncHandler(async (req: Request, res: Response, ne
             items: result.items.map(item => ({
                 id: item.id,
                 barang_id: item.barang_id,
+                jumlah: item.jumlah,
                 kode_peminjaman: item.kode_peminjaman,
                 estimasi_pinjam: item.estimasi_pinjam,
                 jam_pinjam: item.jam_pinjam,
