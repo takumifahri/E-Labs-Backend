@@ -131,7 +131,6 @@ model Peminjaman_Handset {
   id                    Int        @id @default(autoincrement())
   user_id               Int
   barang_id             Int
-  peminjaman_handset_id Int? // Ini sepertinya salah, seharusnya referensi ke peminjaman_ruangan jika di ERD
   kode_peminjaman       String     @unique
   tanggal_pinjam        DateTime
   tanggal_kembali       DateTime?

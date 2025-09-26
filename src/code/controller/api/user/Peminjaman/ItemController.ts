@@ -26,25 +26,5 @@ const AjuanPeminjamanItems = asyncHandler(async (req: Request, res: Response, ne
     }
 
     const uniqueCode = `PMJ-${Date.now()}`;
-    const newPeminjamanHeader = await prisma.peminjaman_Handset.create({
-        include: { peminjaman_ruangan: true },
-        data: {
-            kode_peminjaman: uniqueCode,
-            user_id: userId,
-            tanggal_pinjam,
-            tanggal_kembali,
-            kegiatan: keperluan ?? '',
-            peminjaman_ruangan: {
-                create: items.map(it => {
-                    // dukung kedua bentuk: array id (number|string) atau objek { barang_id: ... }
-                    const barangId = (typeof it === 'object' && it !== null && 'barang_id' in it)
-                        ? (it as any).barang_id
-                        : it;
-                    return {
-                        barang_id: Number(barangId)
-                    } as any;
-                }) as any
-            }
-        }
-    });
+    const ajuanPeminjaman = await prisma.peminjaman.create({
 });
