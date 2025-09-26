@@ -79,7 +79,9 @@ model Barang {
   nama_barang         String
   merek               String?
   kondisi             String
+  jumlah              Int                 @default(0)
   status              String
+  foto_barang         String?              
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   deletedAt           DateTime?
@@ -107,6 +109,7 @@ model Peminjaman_Item {
   user_id             Int
   barang_id           Int
   estimasi_pinjam     DateTime
+  jumlah              Int         @default(0)
   jam_kembali         DateTime?
   jam_pinjam          DateTime
   kode_peminjaman     String     @unique
@@ -136,6 +139,7 @@ model Peminjaman_Handset {
   tanggal_kembali       DateTime?
   status                String
   kegiatan              String
+  Dokumen               String?    
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
   deletedAt             DateTime?
@@ -151,6 +155,7 @@ model Peminjaman_Ruangan {
   ruangan_id            Int
   user_id               Int
   peminjaman_handset_id Int?
+  matkul_id             Int?                 
   tanggal               DateTime
   jam_mulai             DateTime
   jam_selesai           DateTime
@@ -159,11 +164,13 @@ model Peminjaman_Ruangan {
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
   deletedAt             DateTime?
-  
+
   ruangan             Ruangan              @relation(fields: [ruangan_id], references: [id])
   user                User                 @relation(fields: [user_id], references: [id])
   peminjaman_handset  Peminjaman_Handset?  @relation(fields: [peminjaman_handset_id], references: [id])
+  matkul              Master_Matkul?       @relation(fields: [matkul_id], references: [id]) 
 }
+
 
 model Log {
   id              Int       @id @default(autoincrement())
@@ -190,8 +197,9 @@ model Notifikasi {
 }
 
 model Master_Matkul {
-  id       Int        @id @default(autoincrement())
-  prod_id  Int
-  matkul   String
-  prodi    MasterProdi @relation(fields: [prod_id], references: [id])
+  id                 Int                  @id @default(autoincrement())
+  prod_id            Int
+  matkul             String
+  prodi              MasterProdi          @relation(fields: [prod_id], references: [id])
+  peminjaman_ruangan Peminjaman_Ruangan[]
 }

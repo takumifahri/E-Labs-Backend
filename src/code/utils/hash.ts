@@ -38,7 +38,7 @@ export async function verifyPassword(hashPassword: string, password: string): Pr
     }
 }
 
-export async function generateJWTToken(payload: string | object, expiresIn: string | number = '6h'): Promise<string> {
+export async function generateJWTToken(payload: string | object, expiresIn: string | number = '10m'): Promise<string> {
     if (!jwtSecret) {
         throw new Error('JWT secret is not defined');
     }

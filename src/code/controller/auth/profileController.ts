@@ -4,6 +4,7 @@ import { ProfileDto, UpdateProfileDto } from "../../models/profile";
 import { HashPassword, verifyPassword } from "../../utils/hash";
 import { AppError, asyncHandler } from "../../middleware/error";
 import { UpdatePassword } from "../../models/user";
+import { addToBlacklist } from "../../utils/jwt";
 declare global {
     namespace Express {
         interface Request {
@@ -173,6 +174,13 @@ const ChangePassword = asyncHandler(async (req: Request, res: Response) => {
             updatedAt: new Date()
         }
     });
+
+    // extract token from Authorization header and add to blacklist if present
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+        const token = authHeader.slice(7);
+        addToBlacklist(token);
+    }
 
     res.status(200).json({
         message: "Password changed successfully"
