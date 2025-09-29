@@ -12,6 +12,34 @@ datasource db {
   provider = "postgresql"
   url      = env("LOCAL_DATABASE_URL")
 }
+
+// Enums
+enum StatusPeminjamanItem {
+  DIAJUKAN
+  DIPINJAM
+  DIKEMBALIKAN
+  TERLAMBAT
+}
+
+enum StatusPeminjamanHandset {
+  DIAJUKAN
+  DISETUJUI
+  DITOLAK
+  DIBATALKAN
+  SELESAI
+  DIPINJAM
+}
+
+enum StatusPeminjamanRuangan {
+  DIAJUKAN
+  DISETUJUI
+  DITOLAK
+  DIBATALKAN
+  SELESAI
+  BERLANGSUNG
+}
+
+// User Model
 model User {
   id                Int                  @id @default(autoincrement())
   uniqueId          String               @unique @default(cuid())
@@ -28,27 +56,35 @@ model User {
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
   deletedAt         DateTime?
+
+  // FK Relations
   role              Role                 @relation(fields: [roleId], references: [id])
-  prodi             MasterProdi?               @relation(fields: [prodiId], references: [id])
-  // Relasi ke peminjaman                
-  peminjaman_items    Peminjaman_Item[] @relation("UserPeminjaman")
-  peminjaman_handsets Peminjaman_Handset[]
-  peminjaman_ruangans Peminjaman_Ruangan[]
+  prodi             MasterProdi?         @relation(fields: [prodiId], references: [id])
   
-  // Relasi ke logs
+  // Peminjaman Relations (as borrower)
+  peminjaman_items    Peminjaman_Item[]    @relation("UserPeminjamanItem")
+  peminjaman_handsets Peminjaman_Handset[] @relation("UserPeminjamanHandset")
+  peminjaman_ruangans Peminjaman_Ruangan[] @relation("UserPeminjamanRuangan")
+  
+  // Accepted Relations (as admin/verifier)
+  accepted_peminjaman_items    Peminjaman_Item[]    @relation("AcceptedPeminjamanItem")
+  accepted_peminjaman_handsets Peminjaman_Handset[] @relation("AcceptedPeminjamanHandset")
+  accepted_peminjaman_ruangans Peminjaman_Ruangan[] @relation("AcceptedPeminjamanRuangan")
+  
+  // Other Relations
   logs              Log[]
-  
-  // Relasi ke notifikasi
-  notifikasis Notifikasi[]
+  notifikasis       Notifikasi[]
 }
 
+// Master Data Models
 model MasterProdi {
   id          Int       @id @default(autoincrement())
   nama_prodi  String    
-  kode_prodi  String    
+  kode_prodi  String    @unique
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
+  
   users       User[]
   matkul      Master_Matkul[]
 }
@@ -56,19 +92,21 @@ model MasterProdi {
 model Role {
   id          Int       @id @default(autoincrement())
   deskripsi   String    @default("Default Description")
-  nama_role   String    @default("Default Role")
+  nama_role   String    @unique @default("Default Role")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
+  
   users       User[]
 }
 
 model Kategori_Barang {
   id            Int       @id @default(autoincrement())
-  nama_kategori String
+  nama_kategori String    @unique
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   deletedAt     DateTime?
+  
   barangs       Barang[]
 }
 
@@ -79,15 +117,17 @@ model Barang {
   nama_barang         String
   merek               String?
   kondisi             String
-  jumlah              Int                 @default(0)
+  jumlah              Int                  @default(0)
   status              String
   foto_barang         String?              
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   deletedAt           DateTime?
+  
+  // FK Relations
   kategori            Kategori_Barang      @relation(fields: [kategori_id], references: [id])
   
-  // Relasi ke peminjaman handsets dan items
+  // Peminjaman Relations
   peminjaman_handsets Peminjaman_Handset[]
   peminjaman_items    Peminjaman_Item[]
 }
@@ -100,79 +140,113 @@ model Ruangan {
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   deletedAt           DateTime?
-  // Relasi ke peminjaman ruangan
+  
+  // Relations
   peminjaman_ruangans Peminjaman_Ruangan[]
 }
 
+model Master_Matkul {
+  id                 Int                  @id @default(autoincrement())
+  prodi_id           Int
+  matkul             String
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  deletedAt          DateTime?
+  
+  // FK Relations
+  prodi              MasterProdi          @relation(fields: [prodi_id], references: [id])
+  
+  // Relations
+  peminjaman_ruangan Peminjaman_Ruangan[]
+}
+
+// Peminjaman Models
 model Peminjaman_Item {
-  id                  Int        @id @default(autoincrement())
-  user_id             Int
-  barang_id           Int
-  estimasi_pinjam     DateTime
-  jumlah              Int         @default(0)
-  jam_kembali         DateTime?
-  jam_pinjam          DateTime
-  kode_peminjaman     String     @unique
-  tanggal_pinjam      DateTime
-  tanggal_kembali     DateTime?
-  status              String
-  kegiatan            String
-  createdAt           DateTime   @default(now())
-  updatedAt           DateTime   @updatedAt
-  deletedAt           DateTime?
-
-  // FK to user & barang
-  user                User       @relation("UserPeminjaman", fields: [user_id], references: [id])
-  barang              Barang     @relation(fields: [barang_id], references: [id])
-
-  // NEW: optional FK to Peminjaman_Handset and relation name that matches the array on the other side
+  id                    Int                     @id @default(autoincrement())
+  user_id               Int
+  barang_id             Int
+  estimasi_pinjam       DateTime
+  jumlah                Int                     @default(0)
+  jam_kembali           DateTime?
+  jam_pinjam            DateTime
+  kode_peminjaman       String                  @unique
+  tanggal_pinjam        DateTime
+  tanggal_kembali       DateTime?
+  status                StatusPeminjamanItem
+  kegiatan              String
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  deletedAt             DateTime?
+  
+  // Admin who accepted/verified this request
+  accepted_by_id        Int?
+  
+  // Optional relationship to handset (for grouped items)
   peminjaman_handset_id Int?
-  peminjaman_handset    Peminjaman_Handset? @relation("HandsetItems", fields: [peminjaman_handset_id], references: [id])
+
+  // FK Relations
+  user                  User                    @relation("UserPeminjamanItem", fields: [user_id], references: [id])
+  barang                Barang                  @relation(fields: [barang_id], references: [id])
+  accepted_by           User?                   @relation("AcceptedPeminjamanItem", fields: [accepted_by_id], references: [id])
+  peminjaman_handset    Peminjaman_Handset?     @relation("HandsetItems", fields: [peminjaman_handset_id], references: [id])
 }
 
 model Peminjaman_Handset {
-  id                    Int        @id @default(autoincrement())
+  id                    Int                     @id @default(autoincrement())
   user_id               Int
   barang_id             Int
-  peminjaman_handset_id Int? // Ini sepertinya salah, seharusnya referensi ke peminjaman_ruangan jika di ERD
-  kode_peminjaman       String     @unique
+  kode_peminjaman       String                  @unique
   tanggal_pinjam        DateTime
   tanggal_kembali       DateTime?
-  status                String
+  status                StatusPeminjamanHandset
   kegiatan              String
-  Dokumen               String?    
-  createdAt             DateTime   @default(now())
-  updatedAt             DateTime   @updatedAt
+  dokumen               String?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
   deletedAt             DateTime?
   
-  barang              Barang               @relation(fields: [barang_id], references: [id])
-  user                User                 @relation(fields: [user_id], references: [id])
-  peminjaman_ruangan  Peminjaman_Ruangan[]
-  peminjaman_item     Peminjaman_Item[]     @relation("HandsetItems")
+  // Admin who accepted/verified this request
+  accepted_by_id        Int?
+
+  // FK Relations
+  barang                Barang                  @relation(fields: [barang_id], references: [id])
+  user                  User                    @relation("UserPeminjamanHandset", fields: [user_id], references: [id])
+  accepted_by           User?                   @relation("AcceptedPeminjamanHandset", fields: [accepted_by_id], references: [id])
+
+  // Related Items and Ruangan
+  peminjaman_items      Peminjaman_Item[]       @relation("HandsetItems")
+  peminjaman_ruangans   Peminjaman_Ruangan[]
 }
 
 model Peminjaman_Ruangan {
-  id                    Int                  @id @default(autoincrement())
+  id                    Int                     @id @default(autoincrement())
   ruangan_id            Int
   user_id               Int
-  peminjaman_handset_id Int?
-  matkul_id             Int?                 
+  matkul_id             Int?
   tanggal               DateTime
   jam_mulai             DateTime
   jam_selesai           DateTime
-  status                String
+  status                StatusPeminjamanRuangan
   kegiatan              String
-  createdAt             DateTime             @default(now())
-  updatedAt             DateTime             @updatedAt
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
   deletedAt             DateTime?
+  
+  // Admin who accepted/verified this request
+  accepted_by_id        Int?
+  
+  // Optional relationship to handset (if room booking is part of equipment loan)
+  peminjaman_handset_id Int?
 
-  ruangan             Ruangan              @relation(fields: [ruangan_id], references: [id])
-  user                User                 @relation(fields: [user_id], references: [id])
-  peminjaman_handset  Peminjaman_Handset?  @relation(fields: [peminjaman_handset_id], references: [id])
-  matkul              Master_Matkul?       @relation(fields: [matkul_id], references: [id]) 
+  // FK Relations
+  ruangan               Ruangan                 @relation(fields: [ruangan_id], references: [id])
+  user                  User                    @relation("UserPeminjamanRuangan", fields: [user_id], references: [id])
+  matkul                Master_Matkul?          @relation(fields: [matkul_id], references: [id])
+  accepted_by           User?                   @relation("AcceptedPeminjamanRuangan", fields: [accepted_by_id], references: [id])
+  peminjaman_handset    Peminjaman_Handset?     @relation(fields: [peminjaman_handset_id], references: [id])
 }
 
-
+// Logging and Notification Models
 model Log {
   id              Int       @id @default(autoincrement())
   user_id         Int
@@ -181,7 +255,8 @@ model Log {
   tabel_terkait   String?
   createdAt       DateTime  @default(now())
   
-  user User @relation(fields: [user_id], references: [id])
+  // FK Relations
+  user            User      @relation(fields: [user_id], references: [id])
 }
 
 model Notifikasi {
@@ -194,13 +269,6 @@ model Notifikasi {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
   
-  user User @relation(fields: [user_id], references: [id])
-}
-
-model Master_Matkul {
-  id                 Int                  @id @default(autoincrement())
-  prod_id            Int
-  matkul             String
-  prodi              MasterProdi          @relation(fields: [prod_id], references: [id])
-  peminjaman_ruangan Peminjaman_Ruangan[]
+  // FK Relations
+  user      User      @relation(fields: [user_id], references: [id])
 }

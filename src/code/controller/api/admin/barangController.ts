@@ -238,108 +238,6 @@ const prewarmCaches = async () => {
     }
 };
 
-// // Controllers
-// const getAllBarang = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-//     const { page = 1, limit = 10, kategori_id, status, kondisi, search } = req.query;
-//     const filters = { page: Number(page), limit: Number(limit), kategori_id, status, kondisi, search };
-//     const cacheKey = getCacheKey('barang:list', filters);
-
-//     // Try cache first
-//     const cached = getCache(barangCache, cacheKey);
-//     if (cached) {
-//         return res.status(200).json({ 
-//             ...cached, 
-//             cached: true, 
-//             cache_timestamp: new Date().toISOString(),
-//             cache_stats: {
-//                 hits: barangCache.get(cacheKey)?.hits || 0,
-//                 total_cached_queries: barangCache.size
-//             }
-//         });
-//     }
-
-//     const skip = (Number(page) - 1) * Number(limit);
-//     const take = Number(limit);
-//     const where = buildWhereClause({ kategori_id, status, kondisi, search });
-
-//     // Parallel queries for better performance
-//     const [barangs, total] = await Promise.all([
-//         prisma.barang.findMany({
-//             where,
-//             ...optimizedBarangQuery,
-//             skip,
-//             take,
-//             orderBy: { createdAt: 'desc' }
-//         }),
-//         prisma.barang.count({ where })
-//     ]);
-
-//     const totalPages = Math.ceil(total / take);
-//     const result = {
-//         message: "Barang retrieved successfully",
-//         data: barangs,
-//         pagination: {
-//             current_page: Number(page),
-//             total_pages: totalPages,
-//             total_items: total,
-//             items_per_page: take,
-//             has_next_page: Number(page) < totalPages,
-//             has_prev_page: Number(page) > 1
-//         },
-//         cached: false,
-//         query_time: new Date().toISOString()
-//     };
-
-//     // Cache the result
-//     setCache(barangCache, cacheKey, result);
-    
-//     // Background prewarm (non-blocking)
-//     if (barangCache.size < 50) { // Only prewarm if cache is not too full
-//         setImmediate(() => prewarmCaches());
-//     }
-
-//     res.status(200).json(result);
-// });
-
-// const getBarangById = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-//     const { id } = req.params;
-//     if (!id || isNaN(Number(id))) {
-//         throw new AppError("Invalid barang ID", 400);
-//     }
-
-//     const cacheKey = getCacheKey('barang:detail', { id: Number(id) });
-//     const cached = getCache(barangCache, cacheKey);
-    
-//     if (cached) {
-//         return res.status(200).json({ 
-//             ...cached, 
-//             cached: true, 
-//             cache_timestamp: new Date().toISOString(),
-//             cache_hits: barangCache.get(cacheKey)?.hits || 0
-//         });
-//     }
-
-//     const barang = await prisma.barang.findFirst({
-//         where: { id: Number(id), deletedAt: null },
-//         ...optimizedBarangQuery
-//     });
-
-//     if (!barang) {
-//         throw new AppError("Barang not found", 404);
-//     }
-
-//     const result = { 
-//         message: "Barang retrieved successfully", 
-//         data: barang, 
-//         cached: false 
-//     };
-    
-//     // Cache with longer TTL for details
-//     setCache(barangCache, cacheKey, result, CACHE_CONFIG.DETAIL_TTL);
-
-//     res.status(200).json(result);
-// });
-
 const updateBarang = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     
@@ -643,7 +541,11 @@ const getAllBarang = asyncHandler(async (req: Request, res: Response, next: Next
     const { page = 1, limit = 10, kategori_id, status, kondisi, search } = req.query;
     const filters = { page: Number(page), limit: Number(limit), kategori_id, status, kondisi, search };
     const cacheKey = getCacheKey('barang:list', filters);
-
+    // Kita exception yang udah di delete
+    const deletedItems = await prisma.barang.findMany({
+        where: { deletedAt: { not: null } },
+        select: { id: true }
+    });
     // Try cache first
     const cached = getCache(barangCache, cacheKey);
     if (cached) {
@@ -671,6 +573,7 @@ const getAllBarang = asyncHandler(async (req: Request, res: Response, next: Next
     const where = buildWhereClause({ kategori_id, status, kondisi, search });
 
     // Parallel queries for better performance
+    
     const [barangs, total] = await Promise.all([
         prisma.barang.findMany({
             where,
@@ -792,14 +695,14 @@ const deleteBarang = asyncHandler(async (req: Request, res: Response, next: Next
     const activePeminjaman = await prisma.peminjaman_Item.findFirst({
         where: { 
             barang_id: Number(id), 
-            status: { in: [StatusBarang.DIPINJAM, 'Pending'] }, 
+            status: { in: [StatusBarang.DIPINJAM] }, 
             deletedAt: null 
         },
         select: { id: true }
     });
     
     if (activePeminjaman) {
-        throw new AppError("Cannot delete barang that is currently borrowed or pending", 400);
+        throw new AppError("Cannot delete barang that is currently borrowed", 400);
     }
 
     // Delete associated image file if exists
@@ -829,6 +732,8 @@ const deleteBarang = asyncHandler(async (req: Request, res: Response, next: Next
     // Clear all related caches
     clearAllRelatedCaches();
 
+    // kita cache ulang dg data yang baru
+    setImmediate(() => prewarmCaches());
     res.status(200).json({ 
         message: "Barang deleted successfully", 
         data: deleted,
@@ -837,6 +742,7 @@ const deleteBarang = asyncHandler(async (req: Request, res: Response, next: Next
         image_filename: existing.foto_barang
     });
 });
+
 const restoreBarang = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     
