@@ -50,6 +50,7 @@
     "apicache": "^1.6.3",
     "argon2": "^0.43.1",
     "aws-sdk": "^2.1692.0",
+    "cloudinary": "^2.7.0",
     "cors": "^2.8.5",
     "express-fileupload": "^1.5.2",
     "jsonwebtoken": "^9.0.2",
