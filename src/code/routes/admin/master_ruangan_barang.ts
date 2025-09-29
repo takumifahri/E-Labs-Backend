@@ -2,22 +2,94 @@ import express from 'express';
 import RuanganController from '../../controller/api/admin/ruanganController';
 import AuthMiddleware from '../../middleware/authmiddleware';
 import BarangController from '../../controller/api/admin/barangController';
+import { uploadMiddlewares, FileHandler, UploadCategory } from '../../utils/FileHandler';
+
 const master_ruangan_barang_router = express.Router();
 const authMiddleware = AuthMiddleware.authMiddleware;
+const barangImageUpload = FileHandler.createUploadMiddleware(UploadCategory.BARANG, 'image', 'barang', 1, 'foto_barang');
 
-master_ruangan_barang_router.post('/ruangan', authMiddleware, RuanganController.CreateRuangan, AuthMiddleware.Checkroles(['superadmin', 'pengelola']));
-master_ruangan_barang_router.get('/ruangan', authMiddleware, RuanganController.GetRuanganMaster, AuthMiddleware.Checkroles(['superadmin', 'pengelola']));
-master_ruangan_barang_router.get('/ruangan/:id', authMiddleware, RuanganController.GetRuanganById, AuthMiddleware.Checkroles(['superadmin', 'pengelola']));
-master_ruangan_barang_router.put('/ruangan/:id', authMiddleware, RuanganController.UpdateRuangan, AuthMiddleware.Checkroles(['superadmin', 'pengelola']));
-master_ruangan_barang_router.delete('/ruangan/:id', authMiddleware, RuanganController.DeleteRuangan, AuthMiddleware.Checkroles(['superadmin', 'pengelola']));
-master_ruangan_barang_router.post('/ruangan/warm-cache', authMiddleware, RuanganController.WarmRuanganCache, AuthMiddleware.Checkroles(['superadmin', 'pengelola']));
+const AllRoles = ['superadmin', 'pengelola', 'mahasiswa', 'dosen'];
 
-master_ruangan_barang_router.get('/barang', authMiddleware, BarangController.getAllBarang, AuthMiddleware.Checkroles(['superadmin','pengelola']));
-master_ruangan_barang_router.post('/barang', authMiddleware, BarangController.createBarang, AuthMiddleware.Checkroles(['superadmin', 'pengelola']));
-master_ruangan_barang_router.get('/barang/:id', authMiddleware, BarangController.getBarangById, AuthMiddleware.Checkroles(['superadmin', 'pengelola']));
-master_ruangan_barang_router.put('/barang/:id', authMiddleware, BarangController.updateBarang, AuthMiddleware.Checkroles(['superadmin', 'pengelola']));
-master_ruangan_barang_router.delete('/barang/delete/:id', authMiddleware, BarangController.deleteBarang, AuthMiddleware.Checkroles(['superadmin', 'pengelola']));
-master_ruangan_barang_router.post('/barang/restore/:id', authMiddleware, BarangController.restoreBarang, AuthMiddleware.Checkroles(['superadmin', 'pengelola']));
-master_ruangan_barang_router.post('/barang/warm-cache', authMiddleware, BarangController.warmBarangCache, AuthMiddleware.Checkroles(['superadmin', 'pengelola']));
+// RUANGAN ROUTES - Fixed order: auth -> roleCheck -> controller
+master_ruangan_barang_router.post('/ruangan', 
+    authMiddleware, 
+    AuthMiddleware.Checkroles(['superadmin', 'pengelola']),
+    RuanganController.CreateRuangan
+);
+
+master_ruangan_barang_router.get('/ruangan', 
+    authMiddleware, 
+    AuthMiddleware.Checkroles(AllRoles),
+    RuanganController.GetRuanganMaster
+);
+
+master_ruangan_barang_router.get('/ruangan/:id', 
+    authMiddleware, 
+    AuthMiddleware.Checkroles(AllRoles),
+    RuanganController.GetRuanganById
+);
+
+master_ruangan_barang_router.patch('/ruangan/:id', 
+    authMiddleware, 
+    AuthMiddleware.Checkroles(['superadmin', 'pengelola']),
+    RuanganController.UpdateRuangan
+);
+
+master_ruangan_barang_router.delete('/ruangan/:id', 
+    authMiddleware, 
+    AuthMiddleware.Checkroles(['superadmin', 'pengelola']),
+    RuanganController.DeleteRuangan
+);
+
+master_ruangan_barang_router.post('/ruangan/warm-cache', 
+    authMiddleware, 
+    AuthMiddleware.Checkroles(['superadmin', 'pengelola']),
+    RuanganController.WarmRuanganCache
+);
+
+// BARANG ROUTES - Fixed order: auth -> roleCheck -> upload (if needed) -> controller
+master_ruangan_barang_router.get('/barang', 
+    authMiddleware, 
+    AuthMiddleware.Checkroles(AllRoles),
+    BarangController.getAllBarang
+);
+
+master_ruangan_barang_router.post('/barang', 
+    authMiddleware, 
+    AuthMiddleware.Checkroles(['superadmin', 'pengelola']),
+    barangImageUpload,  // Upload middleware after role check
+    BarangController.createBarang
+);
+
+master_ruangan_barang_router.get('/barang/:id', 
+    authMiddleware, 
+    AuthMiddleware.Checkroles(AllRoles),
+    BarangController.getBarangById
+);
+
+master_ruangan_barang_router.patch('/barang/:id', 
+    authMiddleware, 
+    AuthMiddleware.Checkroles(['superadmin', 'pengelola']),
+    barangImageUpload,  // Upload middleware after role check
+    BarangController.updateBarang
+);
+
+master_ruangan_barang_router.delete('/barang/delete/:id', 
+    authMiddleware, 
+    AuthMiddleware.Checkroles(['superadmin', 'pengelola']),
+    BarangController.deleteBarang
+);
+
+master_ruangan_barang_router.patch('/barang/restore/:id', 
+    authMiddleware, 
+    AuthMiddleware.Checkroles(['superadmin', 'pengelola']),
+    BarangController.restoreBarang
+);
+
+master_ruangan_barang_router.post('/barang/warm-cache', 
+    authMiddleware, 
+    AuthMiddleware.Checkroles(['superadmin', 'pengelola']),
+    BarangController.warmBarangCache
+);
 
 export default master_ruangan_barang_router;

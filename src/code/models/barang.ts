@@ -1,15 +1,15 @@
 export enum KondisiBarang {
-    BAIK = 'Baik',
-    RUSAK_RINGAN = 'Rusak Ringan', 
-    RUSAK_BERAT = 'Rusak Berat',
-    HILANG = 'Hilang'
+    BAIK = 'BAIK',
+    RUSAK_RINGAN = 'RUSAK_RINGAN', 
+    RUSAK_BERAT = 'RUSAK_BERAT',
+    HILANG = 'HILANG'
 }
 
 export enum StatusBarang {
-    TERSEDIA = 'Tersedia',
-    DIPINJAM = 'Dipinjam',
-    PERBAIKAN = 'Perbaikan',
-    TIDAK_TERSEDIA = 'Tidak Tersedia'
+    TERSEDIA = 'TERSEDIA',
+    DIPINJAM = 'DIPINJAM',
+    PERBAIKAN = 'PERBAIKAN',
+    TIDAK_TERSEDIA = 'TIDAK_TERSEDIA'
 }
 
 export interface Kategori_Barang {
@@ -30,6 +30,8 @@ export interface Barang {
     status: StatusBarang;
     kategori_id: number;
     kategori: Kategori_Barang;
+    foto_barang?: string;
+
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date;
@@ -44,6 +46,8 @@ export interface BarangRespone {
     kondisi: KondisiBarang;
     status: StatusBarang;
     kategori: Kategori_Barang;
+    foto_barang?: string;
+    
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date;
@@ -58,6 +62,9 @@ export interface BarangRequest {
     status: StatusBarang;
     kategori_id: number;
     kategori: Kategori_Barang;
+    foto_barang?: string;
+    jumlah: number;
+    
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date;

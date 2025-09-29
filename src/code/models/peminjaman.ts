@@ -1,16 +1,17 @@
 export enum PeminjamanHeaderStatus {
-    PENDING = 'Diajukan',
-    DISETUJUI = 'Disetujui',
-    DITOLAK = 'Ditolak',
-    SELESAI = 'Selesai',
-    DIBATALKAN = 'Dibatalkan',
-    DIPINJAM = 'Dipinjam',
+    PENDING = 'DIAJUKAN',
+    DISETUJUI = 'DISETUJUI',
+    DITOLAK = 'DITOLAK',
+    SELESAI = 'SELESAI',
+    DIBATALKAN = 'DIBATALKAN',
+    DIPINJAM = 'DIPINJAM',
 }
 
 export enum PeminjamanItemStatus {
-    DIPINJAM = 'Dipinjam',
-    DIKEMBALIKAN = 'Dikembalikan',
-    TERLAMBAT = 'Terlambat',
+    DIPINJAM = 'DIPINJAM',
+    DIKEMBALIKAN = 'DIKEMBALIKAN',
+    TERLAMBAT = 'TERLAMBAT',
+    DIAJUKAN = 'DIAJUKAN',
 }
 
 export interface PeminjamanHeader {
@@ -28,6 +29,7 @@ export interface PeminjamanHeader {
     updatedAt: Date;
     deletedAt?: Date | null;
 }
+
 export interface PeminjamanItem {
     id: number;
     peminjaman_id: number; // foreign key -> header
@@ -109,6 +111,7 @@ export interface AjuanPeminjamanRequest {
     tanggal_kembali?: Date;
     keperluan?: string;
     estimasi_pinjam?: Date;
+    Dokumen?: string ;
     items: AjuanPeminjamanItemRequest[];
 }
 

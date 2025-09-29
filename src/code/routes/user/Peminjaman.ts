@@ -1,9 +1,12 @@
 import { Router } from "express";
 import AuthMiddleware from "../../middleware/authmiddleware";
 import PeminjamanItemController from "../../controller/api/user/Peminjaman/ItemController";
-const PeminjamanRouter = Router();
+import { uploadMiddlewares, FileHandler, UploadCategory } from '../../utils/FileHandler';
 
-PeminjamanRouter.post("/ajuan", AuthMiddleware.authMiddleware, PeminjamanItemController.AjuanPeminjamanItems);
+const PeminjamanRouter = Router();
+const PeminjamanUpload = FileHandler.createUploadMiddleware(UploadCategory.PEMINJAMAN_ITEM, 'document', 'barang', 1, 'Dokumen');
+
+PeminjamanRouter.post("/ajuan", AuthMiddleware.authMiddleware, PeminjamanUpload, PeminjamanItemController.AjuanPeminjamanItems);
 PeminjamanRouter.post('/test', (req, res) => {
     res.json({ message: "Peminjaman route is working!" });
 });
