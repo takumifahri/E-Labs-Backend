@@ -215,7 +215,6 @@ model Peminjaman_Handset {
 
   // Related Items and Ruangan
   peminjaman_items      Peminjaman_Item[]       @relation("HandsetItems")
-  peminjaman_ruangans   Peminjaman_Ruangan[]
 }
 
 model Peminjaman_Ruangan {
@@ -236,14 +235,12 @@ model Peminjaman_Ruangan {
   accepted_by_id        Int?
   
   // Optional relationship to handset (if room booking is part of equipment loan)
-  peminjaman_handset_id Int?
 
   // FK Relations
   ruangan               Ruangan                 @relation(fields: [ruangan_id], references: [id])
   user                  User                    @relation("UserPeminjamanRuangan", fields: [user_id], references: [id])
   matkul                Master_Matkul?          @relation(fields: [matkul_id], references: [id])
   accepted_by           User?                   @relation("AcceptedPeminjamanRuangan", fields: [accepted_by_id], references: [id])
-  peminjaman_handset    Peminjaman_Handset?     @relation(fields: [peminjaman_handset_id], references: [id])
 }
 
 // Logging and Notification Models

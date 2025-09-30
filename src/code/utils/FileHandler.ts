@@ -23,7 +23,7 @@ const FILE_TYPE_CONFIG = {
         allowedTypes: /jpeg|jpg|png|gif|webp/,
         mimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
         maxSize: 5 * 1024 * 1024, // 5MB
-        extensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+        extensions: ['.jpg', '.jpeg', '.png', '.webp']
     },
     document: {
         allowedTypes: /pdf|doc|docx|txt|xls|xlsx/,
@@ -35,7 +35,7 @@ const FILE_TYPE_CONFIG = {
         allowedTypes: /jpeg|jpg|png|gif|webp|pdf|doc|docx|txt|xls|xlsx/,
         mimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
         maxSize: 10 * 1024 * 1024, // 10MB
-        extensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.doc', '.docx', '.txt', '.xls', '.xlsx']
+        extensions: ['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.doc', '.docx', '.txt', '.xls', '.xlsx']
     }
 };
 

@@ -193,6 +193,7 @@ const getCachedBarang = async (id: number) => {
     
     return barang;
 };
+
 // Ajuan Peminjaman Items dengan optimisasi cache
 const AjuanPeminjamanItems = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const { tanggal_pinjam, tanggal_kembali, keperluan, estimasi_pinjam, items }: AjuanPeminjamanRequest = req.body;
