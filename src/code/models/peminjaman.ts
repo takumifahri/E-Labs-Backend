@@ -1,17 +1,17 @@
 export enum PeminjamanHeaderStatus {
-    PENDING = 'Diajukan',
-    DISETUJUI = 'Disetujui',
-    DITOLAK = 'Ditolak',
-    SELESAI = 'Selesai',
-    DIBATALKAN = 'Dibatalkan',
-    DIPINJAM = 'Dipinjam',
+    PENDING = 'DIAJUKAN',
+    DISETUJUI = 'DISETUJUI',
+    DITOLAK = 'DITOLAK',
+    SELESAI = 'SELESAI',
+    DIBATALKAN = 'DIBATALKAN',
+    DIPINJAM = 'DIPINJAM',
 }
 
 export enum PeminjamanItemStatus {
-    DIPINJAM = 'Dipinjam',
-    DIKEMBALIKAN = 'Dikembalikan',
-    TERLAMBAT = 'Terlambat',
-    DIAJUKAN = 'Diajukan',
+    DIPINJAM = 'DIPINJAM',
+    DIKEMBALIKAN = 'DIKEMBALIKAN',
+    TERLAMBAT = 'TERLAMBAT',
+    DIAJUKAN = 'DIAJUKAN',
 }
 
 export interface PeminjamanHeader {
@@ -98,11 +98,6 @@ export interface PeminjamanRuangan {
 export interface CreatePeminjamanItemRequest {
     barang_id: number;
     jam_pinjam: Date;
-    deletedAt?: Date | null;
-}
-
-// Peminjaman Headers dan Items Request
-export interface AjuanPeminjamanRequest {
     tanggal_pinjam: Date;
     tanggal_kembali?: Date;
     keperluan?: string;

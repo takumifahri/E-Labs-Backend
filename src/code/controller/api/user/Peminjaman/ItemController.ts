@@ -214,7 +214,7 @@ const AjuanPeminjamanItems = asyncHandler(async (req: Request, res: Response, ne
 
     // Use cached user lookup
     const dbUser = await getCachedUser(String(tokenUniqueId));
-        
+    console.log('🔍 Authenticated user:', dbUser?.uniqueId, dbUser?.nama);
     if (!dbUser || !dbUser.isActive) {
         throw new AppError("User not found or inactive", 401);
     }
@@ -272,7 +272,7 @@ const AjuanPeminjamanItems = asyncHandler(async (req: Request, res: Response, ne
                 if (requestedQuantity < 1) {
                     throw new AppError(`Requested quantity must be at least 1`, 400);
                 }
-                
+                console.log(barang.jumlah, 'jumlah barang')
                 if (barang.jumlah < 1) {
                     throw new AppError(`Barang ${barang.nama_barang} is out of stock`, 400);
                 }
