@@ -9,7 +9,7 @@ const router = express.Router();
 
 // Ktia coba router grouping
 router.use('/admin/users', AdminUserRouter);
-router.use('/admin/ruangan', master_ruangan_barang_router);
+router.use('/admin/master', master_ruangan_barang_router);
 
 // router.use('/admin/plans', PlanRouter);
 router.use('/auth', authRouter);

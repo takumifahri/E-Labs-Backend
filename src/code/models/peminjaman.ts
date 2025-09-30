@@ -11,6 +11,7 @@ export enum PeminjamanItemStatus {
     DIPINJAM = 'Dipinjam',
     DIKEMBALIKAN = 'Dikembalikan',
     TERLAMBAT = 'Terlambat',
+    DIAJUKAN = 'Diajukan',
 }
 
 export interface PeminjamanHeader {
@@ -28,6 +29,7 @@ export interface PeminjamanHeader {
     updatedAt: Date;
     deletedAt?: Date | null;
 }
+
 export interface PeminjamanItem {
     id: number;
     peminjaman_id: number; // foreign key -> header
@@ -87,7 +89,6 @@ export interface PeminjamanRuangan {
         id: number;
         nama: string;
         email: string;
-        nim: string;
         uniqueId: string;
     };
     peminjaman_handset?: PeminjamanHeader;
@@ -96,7 +97,6 @@ export interface PeminjamanRuangan {
 // Request interfaces for Peminjaman Item
 export interface CreatePeminjamanItemRequest {
     barang_id: number;
-    estimasi_pinjam: Date;
     jam_pinjam: Date;
     deletedAt?: Date | null;
 }
@@ -111,15 +111,34 @@ export interface AjuanPeminjamanRequest {
     items: AjuanPeminjamanItemRequest[];
 }
 
+export interface AjuanPeminjamanRequest {
+    tanggal_pinjam: Date;
+    tanggal_kembali?: Date;
+    keperluan?: string;
+    estimasi_pinjam?: Date;
+    Dokumen?: string ;
+    items: AjuanPeminjamanItemRequest[];
+}
+
 export interface AjuanPeminjamanItemRequest {
     barang_id: number;
     jumlah?: number;
     jam_pinjam?: Date;
     jam_kembali?: Date;
     estimasi_pinjam?: Date;
-    kondisi_pinjam?: string; // Changed from PeminjamanItemStatus to string
+    kondisi_pinjam?: string;
     kegiatan?: string;
 }
+
+// export interface AjuanPeminjamanItemRequest {
+//     barang_id: number;
+//     jumlah?: number;
+//     jam_pinjam?: Date;
+//     jam_kembali?: Date;
+//     estimasi_pinjam?: Date;
+//     kondisi_pinjam?: string; // Changed from PeminjamanItemStatus to string
+//     kegiatan?: string;
+// }
 // Response Interfaces
 export interface PeminjamanHeaderResponse {
     id: number;
