@@ -1,15 +1,15 @@
 export enum KondisiBarang {
-    BAIK = 'Baik',
-    RUSAK_RINGAN = 'Rusak Ringan', 
-    RUSAK_BERAT = 'Rusak Berat',
-    HILANG = 'Hilang'
+    BAIK = 'BAIK',
+    RUSAK_RINGAN = 'RUSAK_RINGAN', 
+    RUSAK_BERAT = 'RUSAK_BERAT',
+    HILANG = 'HILANG'
 }
 
 export enum StatusBarang {
-    TERSEDIA = 'Tersedia',
-    DIPINJAM = 'Dipinjam',
-    PERBAIKAN = 'Perbaikan',
-    TIDAK_TERSEDIA = 'Tidak Tersedia'
+    TERSEDIA = 'TERSEDIA',
+    DIPINJAM = 'DIPINJAM',
+    PERBAIKAN = 'PERBAIKAN',
+    TIDAK_TERSEDIA = 'TIDAK_TERSEDIA'
 }
 
 export interface Kategori_Barang {

@@ -45,6 +45,7 @@ async function main() {
       nama_barang: "Laptop Dell Inspiron 15",
       merek: "Dell",
       kondisi: "Baik",
+      jumlah: 10,
       status: "Tersedia"
     },
     {
@@ -53,6 +54,7 @@ async function main() {
       nama_barang: "Laptop HP Pavilion",
       merek: "HP",
       kondisi: "Baik",
+      jumlah: 10,
       status: "Tersedia"
     },
     {
@@ -61,6 +63,7 @@ async function main() {
       nama_barang: "Proyektor Epson EB-X41",
       merek: "Epson",
       kondisi: "Sangat Baik",
+      jumlah: 5,
       status: "Tersedia"
     },
     {
@@ -69,6 +72,7 @@ async function main() {
       nama_barang: "Proyektor BenQ MX550",
       merek: "BenQ",
       kondisi: "Baik",
+      jumlah: 5,
       status: "Dipinjam"
     },
     {
@@ -77,6 +81,7 @@ async function main() {
       nama_barang: "AC Sharp 1.5 PK",
       merek: "Sharp",
       kondisi: "Baik",
+      jumlah: 5,
       status: "Tersedia"
     },
     {
@@ -84,6 +89,7 @@ async function main() {
       kode_barang: "AC002",
       nama_barang: "AC Daikin 2 PK",
       merek: "Daikin",
+      jumlah: 3,
       kondisi: "Rusak Ringan",
       status: "Perbaikan"
     },
@@ -93,6 +99,7 @@ async function main() {
       nama_barang: "Meja Kantor Kayu",
       merek: "Chitose",
       kondisi: "Baik",
+      jumlah: 5,
       status: "Tersedia"
     },
     {
@@ -101,6 +108,7 @@ async function main() {
       nama_barang: "Kursi Kantor Ergonomis",
       merek: "Indachi",
       kondisi: "Sangat Baik",
+      jumlah: 5,
       status: "Tersedia"
     },
     {
@@ -108,6 +116,7 @@ async function main() {
       kode_barang: "WB001",
       nama_barang: "Whiteboard 120x90",
       merek: "Sakana",
+      jumlah: 4,
       kondisi: "Baik",
       status: "Tersedia"
     },
@@ -116,6 +125,7 @@ async function main() {
       kode_barang: "PC001",
       nama_barang: "PC Desktop Asus",
       merek: "Asus",
+      jumlah: 4,
       kondisi: "Baik",
       status: "Dipinjam"
     }
