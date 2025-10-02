@@ -45,7 +45,7 @@ export interface PeminjamanItem {
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date;
-    
+
     // Relations (optional)
     user?: {
         id: number;
@@ -77,7 +77,7 @@ export interface PeminjamanRuangan {
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date;
-    
+
     // Relations (optional)
     ruangan?: {
         id: number;
@@ -111,7 +111,7 @@ export interface AjuanPeminjamanRequest {
     tanggal_kembali?: Date;
     keperluan?: string;
     estimasi_pinjam?: Date;
-    Dokumen?: string ;
+    Dokumen?: string;
     items: AjuanPeminjamanItemRequest[];
 }
 
@@ -173,4 +173,25 @@ export interface PeminjamanItemResponse {
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date | null;
+}
+
+// Tidak Terjadwal, Dia tidak harus login & tidak harus dokumen
+export interface PeminjamanHeaderItemTidakTerjadwal {
+    NIM: string;
+    tanggal_pinjam: Date;
+    tanggal_kembali?: Date;
+    keperluan?: string;
+    estimasi_pinjam?: Date;
+    items: AjuanPeminjamanItemRequestTidakTerjawal[];
+}
+
+
+export interface AjuanPeminjamanItemRequestTidakTerjawal {
+    barang_id: number;
+    jumlah?: number;
+    jam_pinjam?: Date;
+    jam_kembali?: Date;
+    estimasi_pinjam?: Date;
+    kondisi_pinjam?: string;
+    kegiatan?: string;
 }
