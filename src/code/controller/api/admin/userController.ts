@@ -171,6 +171,7 @@ const deleteUser = asyncHandler(async (req: express.Request, res: express.Respon
     return res.status(200).json({ message: "User deleted successfully" });
 });
 
+
 const UserController = {
     CreateUser,
     getUserById,

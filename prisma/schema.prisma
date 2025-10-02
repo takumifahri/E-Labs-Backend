@@ -52,6 +52,7 @@ model User {
   NIM               String?
   NIP               String?
   isActive          Boolean              @default(false)
+  isBlocked         Boolean              @default(false)
   password          String
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
@@ -196,7 +197,6 @@ model Peminjaman_Handset {
   user_id               Int
   barang_id             Int
   kode_peminjaman       String     @unique
-  kode_peminjaman       String                  @unique
   tanggal_pinjam        DateTime
   tanggal_kembali       DateTime?
   status                StatusPeminjamanHandset
