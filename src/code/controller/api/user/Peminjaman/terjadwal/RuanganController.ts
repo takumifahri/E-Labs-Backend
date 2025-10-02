@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { PrismaClient } from "@prisma/client";
 import { withAccelerate } from "@prisma/extension-accelerate";
-import { asyncHandler } from "../../../../middleware/error";
-import { CreateRuanganRequest } from "../../../../models/Ruangan";
+import { asyncHandler } from "../../../../../middleware/error";
+import { CreateRuanganRequest } from "../../../../../models/Ruangan";
 
 const prisma = new PrismaClient({
   datasources: {

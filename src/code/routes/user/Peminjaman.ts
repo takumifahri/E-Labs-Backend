@@ -1,6 +1,6 @@
 import { Router } from "express";
 import AuthMiddleware from "../../middleware/authmiddleware";
-import PeminjamanItemController from "../../controller/api/user/Peminjaman/ItemController";
+import PeminjamanItemController from "../../controller/api/user/Peminjaman/terjadwal/ItemController";
 import { uploadMiddlewares, FileHandler, UploadCategory } from '../../utils/FileHandler';
 import PeminajmanItemTidakTerJadwaLController from "../../controller/api/user/Peminjaman/tidak-terjadwal/peminjamanItemController";
 
@@ -12,5 +12,11 @@ PeminjamanRouter.post('/test', (req, res) => {
     res.json({ message: "Peminjaman route is working!" });
 });
 
+// Tidak terjdwal. dia tidak perlu login
 PeminjamanRouter.post("/ajuan-tidak-terjadwal", PeminajmanItemTidakTerJadwaLController.AjuanPeminjamanItemTidakTerjadwal);
+
+
+
+
+
 export default PeminjamanRouter;
