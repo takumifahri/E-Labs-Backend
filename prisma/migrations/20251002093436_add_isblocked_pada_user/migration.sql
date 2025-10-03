@@ -5,7 +5,6 @@
   - The values [Diajukan,Dipinjam,Dikembalikan,Terlambat] on the enum `StatusPeminjamanItem` will be removed. If these variants are still used in the database, this will fail.
   - You are about to drop the column `prod_id` on the `Master_Matkul` table. All the data in the column will be lost.
   - You are about to drop the column `Dokumen` on the `Peminjaman_Handset` table. All the data in the column will be lost.
-  - You are about to drop the column `peminjaman_handset_id` on the `Peminjaman_Handset` table. All the data in the column will be lost.
   - A unique constraint covering the columns `[nama_kategori]` on the table `Kategori_Barang` will be added. If there are existing duplicate values, this will fail.
   - A unique constraint covering the columns `[kode_prodi]` on the table `MasterProdi` will be added. If there are existing duplicate values, this will fail.
   - A unique constraint covering the columns `[nama_role]` on the table `Role` will be added. If there are existing duplicate values, this will fail.
@@ -47,7 +46,6 @@ ADD COLUMN     "updatedAt" TIMESTAMP(3) NOT NULL;
 
 -- AlterTable
 ALTER TABLE "public"."Peminjaman_Handset" DROP COLUMN "Dokumen",
-DROP COLUMN "peminjaman_handset_id",
 ADD COLUMN     "accepted_by_id" INTEGER,
 ADD COLUMN     "dokumen" TEXT;
 
@@ -58,6 +56,9 @@ ALTER TABLE "public"."Peminjaman_Item" ADD COLUMN     "accepted_by_id" INTEGER;
 ALTER TABLE "public"."Peminjaman_Ruangan" ADD COLUMN     "accepted_by_id" INTEGER,
 DROP COLUMN "status",
 ADD COLUMN     "status" "public"."StatusPeminjamanRuangan" NOT NULL;
+
+-- AlterTable
+ALTER TABLE "public"."User" ADD COLUMN     "isBlocked" BOOLEAN NOT NULL DEFAULT false;
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Kategori_Barang_nama_kategori_key" ON "public"."Kategori_Barang"("nama_kategori");
