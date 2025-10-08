@@ -240,35 +240,6 @@ export class FileHandler {
         }
     }
 
-    // Clean up old files (older than specified days)
-    // static async cleanupOldFiles(category: UploadCategory, daysOld: number = 30): Promise<number> {
-    //     try {
-    //         const uploadDir = this.getUploadDir(category);
-    //         const files = fs.readdirSync(uploadDir);
-    //         const cutoffDate = new Date();
-    //         cutoffDate.setDate(cutoffDate.getDate() - daysOld);
-
-    //         let deletedCount = 0;
-
-    //         for (const file of files) {
-    //             const filePath = path.join(uploadDir, file);
-    //             const stats = fs.statSync(filePath);
-
-    //             if (stats.birthtime < cutoffDate) {
-    //                 fs.unlinkSync(filePath);
-    //                 deletedCount++;
-    //                 console.log(`🗑️  Cleaned up old file: ${file}`);
-    //             }
-    //         }
-
-    //         console.log(`✅ Cleanup completed: ${deletedCount} files deleted from ${category}`);
-    //         return deletedCount;
-    //     } catch (error) {
-    //         console.error('❌ Error during cleanup:', error);
-    //         return 0;
-    //     }
-    // }
-
     // Get directory statistics
     static getDirectoryStats(category: UploadCategory) {
         try {
