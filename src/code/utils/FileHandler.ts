@@ -154,9 +154,30 @@ export class FileHandler {
     }
 
     // Get file URL for serving
-    static getFileUrl(category: UploadCategory, filename: string, baseUrl: string): string {
-        return `${baseUrl}/storage/uploads/${category}/${filename}`;
+    static getFileUrl(category: UploadCategory, filename: string, baseUrl?: string): string {
+        const defaultBaseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3333}`;
+        const finalBaseUrl = baseUrl || defaultBaseUrl;
+        return `${finalBaseUrl}/storage/uploads/${category}/${filename}`;
     }
+
+    // Get file URL from full path (new method)
+    static getFileUrlFromPath(filePath: string, baseUrl?: string): string {
+        const defaultBaseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3333}`;
+        const finalBaseUrl = baseUrl || defaultBaseUrl;
+        
+        // Extract path after 'storage'
+        const storageIndex = filePath.indexOf('/storage/');
+        if (storageIndex !== -1) {
+            const relativePath = filePath.substring(storageIndex);
+            return `${finalBaseUrl}${relativePath}`;
+        }
+        
+        // Fallback: extract filename and category
+        const filename = path.basename(filePath);
+        const category = filePath.includes('peminjaman/item') ? UploadCategory.PEMINJAMAN_ITEM : UploadCategory.DOCUMENTS;
+        return this.getFileUrl(category, filename, finalBaseUrl);
+    }
+
 
     // Get file info
     static getFileInfo(category: UploadCategory, filename: string) {
