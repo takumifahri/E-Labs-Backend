@@ -5,6 +5,7 @@ export enum PeminjamanHeaderStatus {
     SELESAI = 'SELESAI',
     DIBATALKAN = 'DIBATALKAN',
     DIPINJAM = 'DIPINJAM',
+    SEBAGIAN_DISETUJUI = 'SEBAGIAN_DISETUJUI'
 }
 
 export enum PeminjamanItemStatus {

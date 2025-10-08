@@ -15,6 +15,7 @@ datasource db {
 
 // Enums
 enum StatusPeminjamanItem {
+  DITOLAK
   DIAJUKAN
   DIPINJAM
   DIKEMBALIKAN
@@ -24,6 +25,7 @@ enum StatusPeminjamanItem {
 enum StatusPeminjamanHandset {
   DIAJUKAN
   DISETUJUI
+  SEBAGIAN_DISETUJUI
   DITOLAK
   DIBATALKAN
   SELESAI
