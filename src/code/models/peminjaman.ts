@@ -5,6 +5,7 @@ export enum PeminjamanHeaderStatus {
     SELESAI = 'SELESAI',
     DIBATALKAN = 'DIBATALKAN',
     DIPINJAM = 'DIPINJAM',
+    SEBAGIAN_DISETUJUI = 'SEBAGIAN_DISETUJUI'
 }
 
 export enum PeminjamanItemStatus {
@@ -45,7 +46,7 @@ export interface PeminjamanItem {
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date;
-    
+
     // Relations (optional)
     user?: {
         id: number;
@@ -61,10 +62,10 @@ export interface PeminjamanItem {
             nama_kategori: string;
         };
     };
-    peminjaman_ruangan?: PeminjamanRuangan[];
+    peminjaman_ruangan?: PeminjamanRuanganResponse[];
 }
 
-export interface PeminjamanRuangan {
+export interface PeminjamanRuanganResponse {
     id: number;
     ruangan_id: number;
     user_id: number;
@@ -77,7 +78,7 @@ export interface PeminjamanRuangan {
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date;
-    
+
     // Relations (optional)
     ruangan?: {
         id: number;
@@ -85,6 +86,7 @@ export interface PeminjamanRuangan {
         kode_ruangan: string;
         gedung: string;
     };
+    
     user?: {
         id: number;
         nama: string;
@@ -111,7 +113,7 @@ export interface AjuanPeminjamanRequest {
     tanggal_kembali?: Date;
     keperluan?: string;
     estimasi_pinjam?: Date;
-    Dokumen?: string ;
+    Dokumen?: string;
     items: AjuanPeminjamanItemRequest[];
 }
 
@@ -173,4 +175,25 @@ export interface PeminjamanItemResponse {
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date | null;
+}
+
+// Tidak Terjadwal, Dia tidak harus login & tidak harus dokumen
+export interface PeminjamanHeaderItemTidakTerjadwal {
+    NIM: string;
+    tanggal_pinjam: Date;
+    tanggal_kembali?: Date;
+    keperluan?: string;
+    estimasi_pinjam?: Date;
+    items: AjuanPeminjamanItemRequestTidakTerjawal[];
+}
+
+
+export interface AjuanPeminjamanItemRequestTidakTerjawal {
+    barang_id: number;
+    jumlah?: number;
+    jam_pinjam?: Date;
+    jam_kembali?: Date;
+    estimasi_pinjam?: Date;
+    kondisi_pinjam?: string;
+    kegiatan?: string;
 }

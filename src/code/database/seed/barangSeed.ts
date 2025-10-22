@@ -144,6 +144,7 @@ async function main() {
           nama_barang: item.nama_barang,
           merek: item.merek,
           kondisi: item.kondisi,
+          jumlah: item.jumlah,
           status: item.status
         }
       });

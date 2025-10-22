@@ -154,9 +154,30 @@ export class FileHandler {
     }
 
     // Get file URL for serving
-    static getFileUrl(category: UploadCategory, filename: string, baseUrl: string): string {
-        return `${baseUrl}/storage/uploads/${category}/${filename}`;
+    static getFileUrl(category: UploadCategory, filename: string, baseUrl?: string): string {
+        const defaultBaseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3333}`;
+        const finalBaseUrl = baseUrl || defaultBaseUrl;
+        return `${finalBaseUrl}/storage/uploads/${category}/${filename}`;
     }
+
+    // Get file URL from full path (new method)
+    static getFileUrlFromPath(filePath: string, baseUrl?: string): string {
+        const defaultBaseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3333}`;
+        const finalBaseUrl = baseUrl || defaultBaseUrl;
+        
+        // Extract path after 'storage'
+        const storageIndex = filePath.indexOf('/storage/');
+        if (storageIndex !== -1) {
+            const relativePath = filePath.substring(storageIndex);
+            return `${finalBaseUrl}${relativePath}`;
+        }
+        
+        // Fallback: extract filename and category
+        const filename = path.basename(filePath);
+        const category = filePath.includes('peminjaman/item') ? UploadCategory.PEMINJAMAN_ITEM : UploadCategory.DOCUMENTS;
+        return this.getFileUrl(category, filename, finalBaseUrl);
+    }
+
 
     // Get file info
     static getFileInfo(category: UploadCategory, filename: string) {
@@ -239,35 +260,6 @@ export class FileHandler {
             return false;
         }
     }
-
-    // Clean up old files (older than specified days)
-    // static async cleanupOldFiles(category: UploadCategory, daysOld: number = 30): Promise<number> {
-    //     try {
-    //         const uploadDir = this.getUploadDir(category);
-    //         const files = fs.readdirSync(uploadDir);
-    //         const cutoffDate = new Date();
-    //         cutoffDate.setDate(cutoffDate.getDate() - daysOld);
-
-    //         let deletedCount = 0;
-
-    //         for (const file of files) {
-    //             const filePath = path.join(uploadDir, file);
-    //             const stats = fs.statSync(filePath);
-
-    //             if (stats.birthtime < cutoffDate) {
-    //                 fs.unlinkSync(filePath);
-    //                 deletedCount++;
-    //                 console.log(`🗑️  Cleaned up old file: ${file}`);
-    //             }
-    //         }
-
-    //         console.log(`✅ Cleanup completed: ${deletedCount} files deleted from ${category}`);
-    //         return deletedCount;
-    //     } catch (error) {
-    //         console.error('❌ Error during cleanup:', error);
-    //         return 0;
-    //     }
-    // }
 
     // Get directory statistics
     static getDirectoryStats(category: UploadCategory) {

@@ -7,52 +7,52 @@ async function main() {
 
   const ruanganData = [
     {
-      gedung: "Gedung A",
+      gedung: "Gedung CA",
       nama_ruangan: "Ruang Kuliah 101",
       kode_ruangan: "A101"
     },
     {
-      gedung: "Gedung A",
+      gedung: "Gedung CA",
       nama_ruangan: "Ruang Kuliah 102",
       kode_ruangan: "A102"
     },
     {
-      gedung: "Gedung B",
+      gedung: "Gedung CB",
       nama_ruangan: "Laboratorium Komputer 1",
       kode_ruangan: "B201"
     },
     {
-      gedung: "Gedung B",
+      gedung: "Gedung CB",
       nama_ruangan: "Laboratorium Komputer 2",
       kode_ruangan: "B202"
     },
     {
-      gedung: "Gedung C",
+      gedung: "Gedung CB",
       nama_ruangan: "Ruang Seminar",
       kode_ruangan: "C301"
     },
     {
-      gedung: "Gedung C",
+      gedung: "Gedung CB",
       nama_ruangan: "Ruang Rapat",
       kode_ruangan: "C302"
     },
     {
-      gedung: "Gedung D",
+      gedung: "Gedung CB",
       nama_ruangan: "Auditorium",
       kode_ruangan: "D401"
     },
     {
-      gedung: "Gedung A",
+      gedung: "Gedung CA",
       nama_ruangan: "Ruang Kuliah 103",
       kode_ruangan: "A103"
     },
     {
-      gedung: "Gedung B",
+      gedung: "Gedung CA",
       nama_ruangan: "Laboratorium Fisika",
       kode_ruangan: "B203"
     },
     {
-      gedung: "Gedung C",
+      gedung: "Gedung CA",
       nama_ruangan: "Ruang Diskusi",
       kode_ruangan: "C303"
     }

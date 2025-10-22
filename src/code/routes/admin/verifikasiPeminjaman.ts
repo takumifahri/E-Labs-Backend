@@ -2,7 +2,7 @@ import express from 'express';
 import RuanganController from '../../controller/api/admin/ruanganController';
 import AuthMiddleware from '../../middleware/authmiddleware';
 import { uploadMiddlewares, FileHandler, UploadCategory } from '../../utils/FileHandler';
-import VerifikasiController from '../../controller/api/admin/verifikasi-peminjaman';
+import VerifikasiController from '../../controller/api/admin/peminjaman/barang/verifikasi-peminjaman';
 
 const verfikasi_router = express.Router();
 const authMiddleware = AuthMiddleware.authMiddleware;

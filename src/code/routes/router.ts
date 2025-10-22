@@ -17,7 +17,7 @@ router.use('/auth', authRouter);
 
 
 // Router Peminjaman Item
-router.use('/peminjamanItem', PeminjamanRouter);
+router.use('/peminjaman', PeminjamanRouter);
 
 
 export default router;

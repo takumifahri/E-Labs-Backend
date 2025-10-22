@@ -14,7 +14,15 @@ datasource db {
 }
 
 // Enums
+enum StatusRuangan {
+  DIPAKAI
+  KOSONG
+  DIPERBAIKI
+}
+
+
 enum StatusPeminjamanItem {
+  DITOLAK
   DIAJUKAN
   DIPINJAM
   DIKEMBALIKAN
@@ -24,6 +32,7 @@ enum StatusPeminjamanItem {
 enum StatusPeminjamanHandset {
   DIAJUKAN
   DISETUJUI
+  SEBAGIAN_DISETUJUI
   DITOLAK
   DIBATALKAN
   SELESAI
@@ -52,6 +61,7 @@ model User {
   NIM               String?
   NIP               String?
   isActive          Boolean              @default(false)
+  isBlocked         Boolean              @default(false)
   password          String
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
@@ -135,6 +145,7 @@ model Barang {
 model Ruangan {
   id                  Int                  @id @default(autoincrement())
   gedung              String
+  status              StatusRuangan        @default(KOSONG)
   nama_ruangan        String
   kode_ruangan        String               @unique
   createdAt           DateTime             @default(now())
@@ -195,7 +206,7 @@ model Peminjaman_Handset {
   id                    Int                     @id @default(autoincrement())
   user_id               Int
   barang_id             Int
-  kode_peminjaman       String                  @unique
+  kode_peminjaman       String     @unique
   tanggal_pinjam        DateTime
   tanggal_kembali       DateTime?
   status                StatusPeminjamanHandset
@@ -227,6 +238,7 @@ model Peminjaman_Ruangan {
   jam_selesai           DateTime
   status                StatusPeminjamanRuangan
   kegiatan              String
+  dokumen               String?
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @updatedAt
   deletedAt             DateTime?
@@ -234,7 +246,6 @@ model Peminjaman_Ruangan {
   // Admin who accepted/verified this request
   accepted_by_id        Int?
   
-  // Optional relationship to handset (if room booking is part of equipment loan)
 
   // FK Relations
   ruangan               Ruangan                 @relation(fields: [ruangan_id], references: [id])
@@ -242,6 +253,7 @@ model Peminjaman_Ruangan {
   matkul                Master_Matkul?          @relation(fields: [matkul_id], references: [id])
   accepted_by           User?                   @relation("AcceptedPeminjamanRuangan", fields: [accepted_by_id], references: [id])
 }
+
 
 // Logging and Notification Models
 model Log {

@@ -4,3 +4,5 @@ node_modules
 /src/generated/prisma
 vercel.json
 .api/
+Dockerfile
+docker-compose.yml
