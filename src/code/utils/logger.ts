@@ -13,4 +13,4 @@ export const logger = {
     },
     time: (label: string) => console.time(`[PERF] ${label}`),
     timeEnd: (label: string) => console.timeEnd(`[PERF] ${label}`),
-};
+}; 

@@ -14,6 +14,13 @@ datasource db {
 }
 
 // Enums
+enum StatusRuangan {
+  DIPAKAI
+  KOSONG
+  DIPERBAIKI
+}
+
+
 enum StatusPeminjamanItem {
   DITOLAK
   DIAJUKAN
@@ -138,6 +145,7 @@ model Barang {
 model Ruangan {
   id                  Int                  @id @default(autoincrement())
   gedung              String
+  status              StatusRuangan        @default(KOSONG)
   nama_ruangan        String
   kode_ruangan        String               @unique
   createdAt           DateTime             @default(now())
@@ -218,7 +226,6 @@ model Peminjaman_Handset {
 
   // Related Items and Ruangan
   peminjaman_items      Peminjaman_Item[]       @relation("HandsetItems")
-  peminjaman_ruangans   Peminjaman_Ruangan[]
 }
 
 model Peminjaman_Ruangan {
@@ -231,6 +238,7 @@ model Peminjaman_Ruangan {
   jam_selesai           DateTime
   status                StatusPeminjamanRuangan
   kegiatan              String
+  dokumen               String?
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @updatedAt
   deletedAt             DateTime?
@@ -238,15 +246,12 @@ model Peminjaman_Ruangan {
   // Admin who accepted/verified this request
   accepted_by_id        Int?
   
-  // Optional relationship to handset (if room booking is part of equipment loan)
-  peminjaman_handset_id Int?
 
   // FK Relations
   ruangan               Ruangan                 @relation(fields: [ruangan_id], references: [id])
   user                  User                    @relation("UserPeminjamanRuangan", fields: [user_id], references: [id])
   matkul                Master_Matkul?          @relation(fields: [matkul_id], references: [id])
   accepted_by           User?                   @relation("AcceptedPeminjamanRuangan", fields: [accepted_by_id], references: [id])
-  peminjaman_handset    Peminjaman_Handset?     @relation(fields: [peminjaman_handset_id], references: [id])
 }
 
 

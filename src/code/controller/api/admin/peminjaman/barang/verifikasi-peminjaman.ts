@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { PrismaClient, StatusPeminjamanHandset, StatusPeminjamanItem } from "@prisma/client";
-import { AppError, asyncHandler } from "../../../middleware/error";
-import { VerifikasiRequest, VerifikasiPeminjamanResponse, VerifikasiPeminjamanRequest, VerifikasiPeminjamanItemRequest, GetAllPengajuan } from "../../../models/verifikasi-peminjaman";
+import { AppError, asyncHandler } from "../../../../../middleware/error";
+import { VerifikasiRequest, VerifikasiPeminjamanResponse, VerifikasiPeminjamanRequest, VerifikasiPeminjamanItemRequest, GetAllPengajuan } from "../../../../../models/verifikasi-peminjaman";
 const prisma = new PrismaClient({
     datasources: {
         db: {

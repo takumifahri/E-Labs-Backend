@@ -62,10 +62,10 @@ export interface PeminjamanItem {
             nama_kategori: string;
         };
     };
-    peminjaman_ruangan?: PeminjamanRuangan[];
+    peminjaman_ruangan?: PeminjamanRuanganResponse[];
 }
 
-export interface PeminjamanRuangan {
+export interface PeminjamanRuanganResponse {
     id: number;
     ruangan_id: number;
     user_id: number;
@@ -86,6 +86,7 @@ export interface PeminjamanRuangan {
         kode_ruangan: string;
         gedung: string;
     };
+    
     user?: {
         id: number;
         nama: string;
