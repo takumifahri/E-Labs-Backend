@@ -10,6 +10,14 @@ export enum StatusRuangan {
     KOSONG = "KOSONG",
     DIPERBAIKI = "DIPERBAIKI"
 }
+export enum PeminjamanRuanganStatus {
+    DIAJUKAN = "DIAJUKAN",
+    DISETUJUI = "DISETUJUI",
+    DITOLAK = "DITOLAK",
+    DIBATALKAN = "DIBATALKAN",
+    SELESAI = "SELESAI",
+    BERLANGSUNG = "BERLANGSUNG"
+}
 
 export interface Ruangan {
     id: number;
@@ -45,6 +53,41 @@ export interface PengajuanRuanganaTerjadwalRequest {
     waktu_selesai: Date;
     dokumen?: string;
     kegiatan?: string;
-
 }
 
+export interface pembatalanPeminjamanRuanganTerjadwalRequest {
+    id: number;
+    nim?: string;
+    nip?: string;
+    status: PeminjamanRuanganStatus;
+}
+export interface ListPengajuanPeminjamanRuanganResponse {
+    id: number;
+    ruangan_id: number;
+    user_id: number;
+    jam_mulai: Date;
+    jam_selesai: Date;
+    status: PeminjamanRuanganStatus;
+    kegiatan: string;
+    tanggal: Date;
+    dokumen: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    responded_by: number | null;
+    responden: {
+        id: number;
+        nama: string;
+        email: string;
+        role: string;
+    } | null;
+    user: {
+        id: number;
+        nama: string;
+        email: string;
+        NIM: string | null;
+        NIP: string | null;
+        role: string;
+    } | null;
+
+    
+}

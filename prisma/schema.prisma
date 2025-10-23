@@ -15,11 +15,11 @@ datasource db {
 
 // Enums
 enum StatusRuangan {
+  DIAJUKAN
   DIPAKAI
   KOSONG
   DIPERBAIKI
 }
-
 
 enum StatusPeminjamanItem {
   DITOLAK
@@ -63,9 +63,15 @@ model User {
   isActive          Boolean              @default(false)
   isBlocked         Boolean              @default(false)
   password          String
+
+  firstWarn         Boolean              @default(false)             
+  secondWarn        Boolean              @default(false)
+  thirdWarn         Boolean              @default(false)
+
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
   deletedAt         DateTime?
+
 
   // FK Relations
   role              Role                 @relation(fields: [roleId], references: [id])
@@ -262,7 +268,9 @@ model Log {
   pesan           String
   aksi            String
   tabel_terkait   String?
-  createdAt       DateTime  @default(now())
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  deletedAt             DateTime?
   
   // FK Relations
   user            User      @relation(fields: [user_id], references: [id])

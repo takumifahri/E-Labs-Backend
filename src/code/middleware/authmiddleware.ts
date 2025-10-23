@@ -67,6 +67,7 @@ function Checkroles(requiredRoles: string[]) {
                 user_role: user?.nama_role,
                 required_roles: requiredRoles,
                 user_data: user ? {
+                    id: user.id,
                     uniqueId: user.uniqueId,
                     email: user.email,
                     roleId: user.roleId

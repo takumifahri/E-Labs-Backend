@@ -5,7 +5,7 @@ import { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse } from '
 import { HashPassword, verifyPassword, generateJWTToken, verifyJWTToken } from '../../utils/hash';
 import { addToBlacklist } from '../../utils/jwt';
 import { AppError, asyncHandler } from '../../middleware/error';
-
+import { logActivity } from '../api/user/LogController';
 const prisma = new PrismaClient();
 
 const Register = asyncHandler(async (req: express.Request, res: express.Response) => {
@@ -22,7 +22,7 @@ const Register = asyncHandler(async (req: express.Request, res: express.Response
     else if (roleId === 2) prefix = 'DSN'; // Dosen
     else if (roleId === 3) prefix = 'TKS'; // Teknisi
     else if (roleId === 4) prefix = 'ADM'; // Superadmin
-    
+
     const uniqueId = `${prefix}-${uuidv4()}`;
     const hashPassword = await HashPassword(password);
 
@@ -59,7 +59,12 @@ const Register = asyncHandler(async (req: express.Request, res: express.Response
         semester: registUser.semester ?? undefined,
         createdAt: registUser.createdAt
     };
-
+    // await logActivity({
+    //     user_id: registUser.id,
+    //     pesan: `Registrasi akun baru (${registUser.email})`,
+    //     aksi: 'REGISTER',
+    //     tabel_terkait: 'User'
+    // });
     return res.status(201).json({
         message: "User registered successfully",
         data: responseRegist
@@ -73,7 +78,7 @@ const Login = asyncHandler(async (req: express.Request, res: express.Response) =
     if (!email || !password) {
         throw new AppError("Email and password are required", 400);
     }
-    
+
     const ValidatingUser = await prisma.user.findUnique({
         where: { email },
         include: { role: true }
@@ -100,7 +105,9 @@ const Login = asyncHandler(async (req: express.Request, res: express.Response) =
     });
 
     const token = await generateJWTToken({
+        id: ValidatingUser.id,
         uniqueId: ValidatingUser.uniqueId,
+        nama: ValidatingUser.nama,
         email: ValidatingUser.email,
         roleId: ValidatingUser.roleId,
         nama_role: ValidatingUser.role.nama_role
@@ -118,6 +125,12 @@ const Login = asyncHandler(async (req: express.Request, res: express.Response) =
         isActive: true
     };
 
+    // await logActivity({
+    //     user_id: ValidatingUser.id,
+    //     pesan: `Login ke sistem (${ValidatingUser.email})`,
+    //     aksi: 'LOGIN',
+    //     tabel_terkait: 'User'
+    // });
     return res.status(200).json({
         message: "Login successful",
         data: loginResponse
@@ -129,7 +142,7 @@ const Logout = asyncHandler(async (req: express.Request, res: express.Response) 
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1];
-        
+
         try {
             const decodedToken = await verifyJWTToken(token) as { uniqueId: string; email: string; roleId: number; nama_role: string };
             if (!decodedToken || !decodedToken.uniqueId) {
