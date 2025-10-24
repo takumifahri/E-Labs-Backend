@@ -25,5 +25,5 @@ PeminjamanRouter.post("/ruangan/terjadwal", PeminjamanRuanganController.Peminjam
 // Available ruangan
 PeminjamanRouter.get("/ruangan/list", PeminjamanRuanganController.getAllRuangan);
 PeminjamanRouter.get("/ruangan/:id", PeminjamanRuanganController.getDetailRuangan);
-
+PeminjamanRouter.post("/ruangan/peminjaman/aktivasi/:id", PeminjamanRuanganController.aktivasiPeminjamanRuanganTerjadwal);
 export default PeminjamanRouter;

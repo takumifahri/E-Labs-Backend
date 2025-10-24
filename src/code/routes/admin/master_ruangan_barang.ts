@@ -47,6 +47,13 @@ master_ruangan_barang_router.post('/ruangan/warm-cache',
     RuanganController.WarmRuanganCache
 );
 
+master_ruangan_barang_router.post('/ruangan/generateQr/:id', 
+    authMiddleware, 
+    AuthMiddleware.Checkroles(['superadmin', 'pengelola']), 
+    RuanganController.QRGenerator
+);
+
+
 // BARANG ROUTES - Fixed order: auth -> roleCheck -> upload (if needed) -> controller
 master_ruangan_barang_router.get('/barang', 
     authMiddleware, 

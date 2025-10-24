@@ -41,6 +41,9 @@ const FILE_TYPE_CONFIG = {
 
 // Enhanced FileHandler class
 export class FileHandler {
+    static getFileFieldName(PROFILE: UploadCategory): any {
+        throw new Error('Method not implemented.');
+    }
     // Create directory if it doesn't exist
     static ensureDirectoryExists(dirPath: string): void {
         if (!fs.existsSync(dirPath)) {

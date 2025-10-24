@@ -161,13 +161,15 @@ model Barang {
   peminjaman_handsets Peminjaman_Handset[]
   peminjaman_items    Peminjaman_Item[]
 }
-
 model Ruangan {
   id                  Int                  @id @default(autoincrement())
   gedung              String
   status              StatusRuangan        @default(KOSONG)
   nama_ruangan        String
   kode_ruangan        String               @unique
+
+  QR_Image            String?              
+
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   deletedAt           DateTime?

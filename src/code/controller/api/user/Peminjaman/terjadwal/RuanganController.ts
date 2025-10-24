@@ -117,7 +117,7 @@ const PeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, res: Respon
 
   // Declare kodeRuanganForLog with a default value
   let kodeRuanganForLog: string | undefined = undefined;
-  
+
   // Cek apakah ada ruangan id
   try {
     const ruangan = await prisma.ruangan.findUnique({
@@ -310,11 +310,106 @@ const pembatalanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, r
     await prisma.$disconnect();
   }
 });
+const aktivasiPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  // This function can be implemented later if needed
+  // Dia bakal ambil ruangan yg ada di QR Ruangan, bakal di scan dan masuk ke web aktivasi peminjaman ruangan terjadwal
+  const { id } = req.params;
+  const { nim, nip } = req.body;
+  try {
+    // Cek ruangannya
+    const ruangans = await prisma.ruangan.findUnique({
+      where: {
+        id: parseInt(id)
+      }
+    });
+    if (!ruangans) {
+      return res.status(404).json({
+        success: false,
+        message: "Ruangan tidak ditemukan"
+      });
+    }
+
+    // User bisa input nim atau nip, cek user berdasarkan salah satu
+    let user: any = null;
+    if (nim) {
+      user = await prisma.user.findFirst({
+        where: { NIM: nim },
+        include: { role: true, peminjaman_ruangans: true }
+      });
+    } else if (nip) {
+      user = await prisma.user.findFirst({
+        where: { NIP: nip },
+        include: { role: true, peminjaman_ruangans: true }
+      });
+    }
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User tidak ditemukan"
+      });
+    }
+    const user_id = user.id;
+
+    // ambil data peminjaman ruangan terjadwal berdasarkan ruangan_id yg di scan apakah sama dengan ruangan_id di peminjaman
+    const peminjamanRuangan = await prisma.peminjaman_Ruangan.findFirst({
+      where: {
+        ruangan_id: ruangans.id,
+      }
+    });
+    if (!peminjamanRuangan) {
+      return res.status(404).json({
+        success: false,
+        message: "Peminjaman ruangan terjadwal tidak ditemukan"
+      });
+    }
+    if (peminjamanRuangan.status !== PeminjamanRuanganStatus.DISETUJUI) {
+      return res.status(400).json({
+        success: false,
+        message: "Peminjaman ruangan terjadwal belum disetujui, tidak dapat diaktifkan"
+      });
+    }
+    // Cek jika user_id dari NIM/NIP tidak sesuai dg user_id di peminjaman
+    if (peminjamanRuangan.user_id !== user_id) {
+      return res.status(403).json({
+        success: false,
+        message: "Anda tidak memiliki izin untuk mengaktifkan peminjaman ruangan terjadwal ini"
+      });
+    } else {
+      // update status menjadi aktif
+      const updatePeminjaman = await prisma.peminjaman_Ruangan.update({
+        where: {
+          id: peminjamanRuangan.id
+        },
+        data: {
+          status: PeminjamanRuanganStatus.BERLANGSUNG
+        }
+      }); 
+      // Update status ruangan menjadi DIPAKAI
+      await prisma.ruangan.update({
+        where: {
+          id: ruangans.id
+        },
+        data: {
+          status: $Enums.StatusRuangan.DIPAKAI
+        }
+      });
+      
+      return res.status(200).json({
+        success: true,
+        message: "Peminjaman ruangan terjadwal berhasil diaktifkan",
+        data: updatePeminjaman
+      });
+    }
+  } catch (error) {
+    throw new AppError(`Failed to activate scheduled room booking, error: ${error}`, 500);
+  }
+});
 
 const PeminjamanRuanganController = {
   PeminjamanRuanganTerjadwal,
   getAllRuangan,
   getDetailRuangan,
-  pembatalanPeminjamanRuanganTerjadwal
+  pembatalanPeminjamanRuanganTerjadwal,
+  aktivasiPeminjamanRuanganTerjadwal
 };
 export default PeminjamanRuanganController;

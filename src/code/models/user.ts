@@ -15,9 +15,12 @@ export interface User {
     password: string;
     roleId: number;
     role: Role;
+
     NIM?: string;
-    NIP?: string;
     semester?: string;
+
+    NIP?: string;
+
     profil?: string;
     createdAt: Date;
     updatedAt: Date;
@@ -42,13 +45,22 @@ export interface UpdateUserRequest {
 }
 
 export interface UserResponse {
+    id: number;
     uniqueId: string;
     nama: string;
     email: string;
+
     NIM?: string;
-    NIP?: string;
     semester?: string;
+    profilUrl?: string;
     profil?: string;
+    NIP?: string;
+    isBlocked?: boolean;
+    prodiId?: number;
+    prodi?: string;
+
+    totalPeringatan?: number;
+
     role: Role;
     createdAt: Date;
     updatedAt: Date;
