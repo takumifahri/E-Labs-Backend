@@ -91,7 +91,7 @@ const AjuanPeminjamanItemTidakTerjadwal = asyncHandler(async (req: Request, res:
                     }
 
                     // Check if item is available for borrowing
-                    if (barang.status !== 'Tersedia') {
+                    if (barang.status !== 'TERSEDIA') {
                         throw new AppError(`Barang ${barang.nama_barang} sedang tidak tersedia untuk dipinjam`, 400);
                     }
                     
@@ -146,7 +146,7 @@ const AjuanPeminjamanItemTidakTerjadwal = asyncHandler(async (req: Request, res:
                     
                     if (barang) {
                         const newJumlah = Math.max(0, barang.jumlah - item.jumlah);
-                        const newStatus = newJumlah <= 0 ? 'Dipinjam' : 'Tersedia';
+                        const newStatus = newJumlah <= 0 ? 'DIPINJAM' : 'TERSEDIA';
                         
                         return await prismaTransaction.barang.update({
                             where: { id: item.barang_id },

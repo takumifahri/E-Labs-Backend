@@ -70,7 +70,6 @@ const Register = asyncHandler(async (req: express.Request, res: express.Response
         data: responseRegist
     });
 });
-
 const Login = asyncHandler(async (req: express.Request, res: express.Response) => {
     const { email, password }: LoginRequest = req.body;
 
@@ -97,6 +96,15 @@ const Login = asyncHandler(async (req: express.Request, res: express.Response) =
     if (ValidatingUser.deletedAt) {
         throw new AppError("Account has been deactivated", 403);
     }
+
+    // --- Tambahan: Revoke JWT lama jika ada ---
+    // Cek apakah ada token lama di cookie
+    const oldToken = req.cookies?.token;
+    if (oldToken) {
+        // Blacklist token lama
+        addToBlacklist(oldToken);
+    }
+    // ------------------------------------------
 
     // Set isActive to true on login
     await prisma.user.update({
@@ -125,16 +133,10 @@ const Login = asyncHandler(async (req: express.Request, res: express.Response) =
         isActive: true
     };
 
-    // await logActivity({
-    //     user_id: ValidatingUser.id,
-    //     pesan: `Login ke sistem (${ValidatingUser.email})`,
-    //     aksi: 'LOGIN',
-    //     tabel_terkait: 'User'
-    // });
     res.cookie('token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
         maxAge: 6 * 60 * 60 * 1000 // 6 hours
     });
     return res.status(200).json({
@@ -164,7 +166,11 @@ const Logout = asyncHandler(async (req: express.Request, res: express.Response) 
             throw new AppError("Invalid token", 401);
         }
     }
-
+    res.clearCookie('token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict'
+    });
     return res.status(200).json({ message: "Logout successful" });
 });
 

@@ -60,6 +60,12 @@ master_ruangan_barang_router.post('/barang',
     barangImageUpload,  // Upload middleware after role check
     BarangController.createBarang
 );
+master_ruangan_barang_router.get('/barang/dashboard', 
+    authMiddleware, 
+    AuthMiddleware.Checkroles(AllRoles),
+    BarangController.getDashboardStats
+
+);
 
 master_ruangan_barang_router.get('/barang/:id', 
     authMiddleware, 

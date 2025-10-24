@@ -136,7 +136,7 @@ const prewarmPeminjamanCaches = async () => {
             where: { 
                 deletedAt: null,
                 jumlah: { gt: 0 },
-                status: { in: ['Tersedia', 'Available'] }
+                status: { in: ['TERSEDIA'] }
             },
             ...optimizedBarangQuery,
             take: 100 // Limit to available items
@@ -365,7 +365,7 @@ const AjuanPeminjamanItems = asyncHandler(async (req: Request, res: Response, ne
                     where: { id: item.barang_id },
                     data: { 
                         jumlah: newJumlah,
-                        status: newJumlah <= 0 ? 'Dipinjam' : 'Tersedia'
+                        status: newJumlah <= 0 ? 'DIPINJAM' : 'TERSEDIA'
                     }
                 });
             }

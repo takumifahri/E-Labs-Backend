@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, KondisiBarang, StatusBarang } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -44,45 +44,50 @@ async function main() {
       kode_barang: "LP001",
       nama_barang: "Laptop Dell Inspiron 15",
       merek: "Dell",
-      kondisi: "Baik",
+      kondisi: "BAIK",
       jumlah: 10,
-      status: "Tersedia"
+      status: "TERSEDIA",
+      foto_barang: "barang_Dell_1761289834387_137645496.webp"
     },
     {
       kategori: "Elektronik",
       kode_barang: "LP002",
       nama_barang: "Laptop HP Pavilion",
       merek: "HP",
-      kondisi: "Baik",
+      kondisi: "BAIK",
       jumlah: 10,
-      status: "Tersedia"
+      status: "TERSEDIA",
+      foto_barang: "barang_laptop_hp_1761290460122_971914718.jpg"
     },
     {
       kategori: "Proyektor",
       kode_barang: "PR001",
       nama_barang: "Proyektor Epson EB-X41",
       merek: "Epson",
-      kondisi: "Sangat Baik",
+      kondisi: "BAIK",
       jumlah: 5,
-      status: "Tersedia"
+      status: "TERSEDIA",
+      foto_barang: "barang_epson_1761290765146_71280289.jpg"
     },
     {
       kategori: "Proyektor",
       kode_barang: "PR002",
       nama_barang: "Proyektor BenQ MX550",
       merek: "BenQ",
-      kondisi: "Baik",
+      kondisi: "BAIK",
       jumlah: 5,
-      status: "Dipinjam"
+      status: "DIPINJAM",
+      foto_barang: "barang_benq_1761293885517_590164149.jpg"
     },
     {
       kategori: "AC & Pendingin",
       kode_barang: "AC001",
       nama_barang: "AC Sharp 1.5 PK",
       merek: "Sharp",
-      kondisi: "Baik",
+      kondisi: "BAIK",
       jumlah: 5,
-      status: "Tersedia"
+      status: "TERSEDIA",
+      foto_barang: "barang_asus_1761293948035_198042651.webp"
     },
     {
       kategori: "AC & Pendingin",
@@ -90,26 +95,29 @@ async function main() {
       nama_barang: "AC Daikin 2 PK",
       merek: "Daikin",
       jumlah: 3,
-      kondisi: "Rusak Ringan",
-      status: "Perbaikan"
+      kondisi: "RUSAK_RINGAN",
+      status: "TERSEDIA",
+      foto_barang: "barang_sharp_1761294089743_211794803.jpg"
     },
     {
       kategori: "Furniture",
       kode_barang: "MJ001",
       nama_barang: "Meja Kantor Kayu",
       merek: "Chitose",
-      kondisi: "Baik",
+      kondisi: "BAIK",
       jumlah: 5,
-      status: "Tersedia"
+      status: "TERSEDIA",
+      foto_barang: "barang_sharp_1761294089743_211794803.jpg"
     },
     {
       kategori: "Furniture",
       kode_barang: "KS001",
       nama_barang: "Kursi Kantor Ergonomis",
       merek: "Indachi",
-      kondisi: "Sangat Baik",
+      kondisi: "BAIK",
       jumlah: 5,
-      status: "Tersedia"
+      status: "TERSEDIA",
+      foto_barang: "barang_epson_1761292256696_155287876.jpg"
     },
     {
       kategori: "Alat Tulis & Papan",
@@ -117,17 +125,19 @@ async function main() {
       nama_barang: "Whiteboard 120x90",
       merek: "Sakana",
       jumlah: 4,
-      kondisi: "Baik",
-      status: "Tersedia"
+      kondisi: "BAIK",
+      status: "TERSEDIA",
+      foto_barang: "barang_desk_1761302697064_473273633.jpg"
     },
     {
       kategori: "Elektronik",
       kode_barang: "PC001",
-      nama_barang: "PC Desktop Asus",
+      nama_barang: "barang_ergonomis_1761302741623_190635702.webp",
       merek: "Asus",
       jumlah: 4,
-      kondisi: "Baik",
-      status: "Dipinjam"
+      kondisi: "BAIK",
+      status: "DIPINJAM",
+      foto_barang: "barang_board_1761302795670_373554240.jpg"
     }
   ];
 
@@ -143,9 +153,10 @@ async function main() {
           kode_barang: item.kode_barang,
           nama_barang: item.nama_barang,
           merek: item.merek,
-          kondisi: item.kondisi,
+          kondisi: item.kondisi as KondisiBarang,
           jumlah: item.jumlah,
-          status: item.status
+          status: item.status as StatusBarang,
+          foto_barang: item.foto_barang // <-- tambahkan ini
         }
       });
       console.log(`✅ Created barang: ${item.nama_barang}`);

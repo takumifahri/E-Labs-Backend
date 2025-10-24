@@ -21,6 +21,20 @@ enum StatusRuangan {
   DIPERBAIKI
 }
 
+enum StatusBarang {
+  TERSEDIA
+  DIPINJAM
+  RUSAK
+  PERBAIKAN
+  TIDAK_TERSEDIA
+}
+
+
+enum KondisiBarang {
+  BAIK
+  RUSAK_BERAT
+  RUSAK_RINGAN
+}
 enum StatusPeminjamanItem {
   DITOLAK
   DIAJUKAN
@@ -132,9 +146,9 @@ model Barang {
   kode_barang         String               @unique
   nama_barang         String
   merek               String?
-  kondisi             String
+  kondisi             KondisiBarang        @default(BAIK)
   jumlah              Int                  @default(0)
-  status              String
+  status              StatusBarang         @default(TERSEDIA)
   foto_barang         String?              
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt

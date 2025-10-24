@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { PrismaClient } from "@prisma/client";
+import { $Enums, PrismaClient } from "@prisma/client";
 import { AppError, asyncHandler } from "../../../middleware/error";
 import { Barang, BarangRequest, BarangRespone, KondisiBarang, StatusBarang } from "../../../models/barang";
 import { uploadMiddlewares, FileHandler, UploadCategory } from '../../../utils/FileHandler';
@@ -237,7 +237,6 @@ const prewarmCaches = async () => {
         console.error('❌ Cache prewarm error:', error);
     }
 };
-
 const updateBarang = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     
@@ -318,9 +317,8 @@ const updateBarang = asyncHandler(async (req: Request, res: Response, next: Next
             
             newFotoBarang = req.file.filename; // Use new filename
             
-            // Generate image URL for response
-            const baseUrl = `${req.protocol}://${req.get('host')}`;
-            imageUrl = FileHandler.getFileUrl(UploadCategory.BARANG, newFotoBarang, baseUrl);
+            // Generate relative image URL for response
+            imageUrl = `uploads/barang/${newFotoBarang}`;
             
             console.log(`📸 Barang image updated: ${newFotoBarang}`);
         } catch (error) {
@@ -328,9 +326,8 @@ const updateBarang = asyncHandler(async (req: Request, res: Response, next: Next
             throw new AppError("Failed to process uploaded file", 500);
         }
     } else if (existing.foto_barang) {
-        // Generate URL for existing image
-        const baseUrl = `${req.protocol}://${req.get('host')}`;
-        imageUrl = FileHandler.getFileUrl(UploadCategory.BARANG, existing.foto_barang, baseUrl);
+        // Generate relative URL for existing image
+        imageUrl = `uploads/barang/${existing.foto_barang}`;
     }
 
     // Build update data dengan checking yang lebih robust
@@ -383,7 +380,7 @@ const updateBarang = asyncHandler(async (req: Request, res: Response, next: Next
     // Trigger background cache refresh
     setImmediate(() => prewarmCaches());
 
-    // Prepare response with image URL
+    // Prepare response with relative image URL
     const responseData = {
         ...updated,
         foto_barang_url: imageUrl
@@ -497,12 +494,15 @@ const createBarang = asyncHandler(async (req: Request, res: Response, next: Next
         foto_barang
     });
 
+    // Import Prisma enum for type-safe assignment
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     const newBarang = await prisma.barang.create({
         data: {
             kode_barang: kode_barang.trim(),
             nama_barang: nama_barang.trim(),
             merek: merek || "",
-            kondisi,
+            kondisi: kondisi as $Enums.KondisiBarang | undefined,
             jumlah: Number(jumlah) || 0,
             status,
             kategori_id: Number(kategori_id),
@@ -537,29 +537,104 @@ const createBarang = asyncHandler(async (req: Request, res: Response, next: Next
 });
 
 // Enhanced getAllBarang to include image URLs
+// const getAllBarang = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+//     const { page = 1, limit = 10, kategori_id, status, kondisi, search } = req.query;
+//     const filters = { page: Number(page), limit: Number(limit), kategori_id, status, kondisi, search };
+//     const cacheKey = getCacheKey('barang:list', filters);
+//     // Kita exception yang udah di delete
+//     const deletedItems = await prisma.barang.findMany({
+//         where: { deletedAt: { not: null } },
+//         select: { id: true }
+//     });
+//     // Try cache first
+//     const cached = getCache(barangCache, cacheKey);
+//     if (cached) {
+//         // Add image URLs to cached data
+//         const baseUrl = `${req.protocol}://${req.get('host')}`;
+//         const dataWithUrls = cached.data.map((item: any) => ({
+//             ...item,
+//             foto_barang_url: item.foto_barang ? FileHandler.getFileUrl(UploadCategory.BARANG, item.foto_barang, baseUrl) : null
+//         }));
+        
+//         return res.status(200).json({ 
+//             ...cached,
+//             data: dataWithUrls,
+//             cached: true, 
+//             cache_timestamp: new Date().toISOString(),
+//             cache_stats: {
+//                 hits: barangCache.get(cacheKey)?.hits || 0,
+//                 total_cached_queries: barangCache.size
+//             }
+//         });
+//     }
+
+//     const skip = (Number(page) - 1) * Number(limit);
+//     const take = Number(limit);
+//     const where = buildWhereClause({ kategori_id, status, kondisi, search });
+
+//     // Parallel queries for better performance
+    
+//     const [barangs, total] = await Promise.all([
+//         prisma.barang.findMany({
+//             where,
+//             ...optimizedBarangQuery,
+//             skip,
+//             take,
+//             orderBy: { createdAt: 'desc' }
+//         }),
+//         prisma.barang.count({ where })
+//     ]);
+
+//     // Add image URLs to response
+//     const baseUrl = `${req.protocol}://${req.get('host')}`;
+//     const barangsWithUrls = barangs.map(barang => ({
+//         ...barang,
+//         foto_barang_url: barang.foto_barang ? FileHandler.getFileUrl(UploadCategory.BARANG, barang.foto_barang, baseUrl) : null
+//     }));
+
+//     const totalPages = Math.ceil(total / take);
+//     const result = {
+//         message: "Barang retrieved successfully",
+//         data: barangsWithUrls,
+//         pagination: {
+//             current_page: Number(page),
+//             total_pages: totalPages,
+//             total_items: total,
+//             items_per_page: take,
+//             has_next_page: Number(page) < totalPages,
+//             has_prev_page: Number(page) > 1
+//         },
+//         cached: false,
+//         query_time: new Date().toISOString()
+//     };
+
+//     // Cache the result (without URLs to save space)
+//     setCache(barangCache, cacheKey, { ...result, data: barangs });
+    
+//     // Background prewarm (non-blocking)
+//     if (barangCache.size < 50) { // Only prewarm if cache is not too full
+//         setImmediate(() => prewarmCaches());
+//     }
+
+//     res.status(200).json(result);
+// });
 const getAllBarang = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    const { page = 1, limit = 10, kategori_id, status, kondisi, search } = req.query;
-    const filters = { page: Number(page), limit: Number(limit), kategori_id, status, kondisi, search };
-    const cacheKey = getCacheKey('barang:list', filters);
-    // Kita exception yang udah di delete
-    const deletedItems = await prisma.barang.findMany({
-        where: { deletedAt: { not: null } },
-        select: { id: true }
-    });
+    const { kategori_id, status, kondisi, search } = req.query;
+    const filters = { kategori_id, status, kondisi, search };
+    const cacheKey = getCacheKey('barang:list:all', filters);
+
     // Try cache first
     const cached = getCache(barangCache, cacheKey);
     if (cached) {
-        // Add image URLs to cached data
-        const baseUrl = `${req.protocol}://${req.get('host')}`;
         const dataWithUrls = cached.data.map((item: any) => ({
             ...item,
-            foto_barang_url: item.foto_barang ? FileHandler.getFileUrl(UploadCategory.BARANG, item.foto_barang, baseUrl) : null
+            foto_barang_url: item.foto_barang ? `uploads/barang/${item.foto_barang}` : null
         }));
-        
-        return res.status(200).json({ 
-            ...cached,
+
+        return res.status(200).json({
+            message: "Barang retrieved successfully",
             data: dataWithUrls,
-            cached: true, 
+            cached: true,
             cache_timestamp: new Date().toISOString(),
             cache_stats: {
                 hits: barangCache.get(cacheKey)?.hits || 0,
@@ -568,57 +643,31 @@ const getAllBarang = asyncHandler(async (req: Request, res: Response, next: Next
         });
     }
 
-    const skip = (Number(page) - 1) * Number(limit);
-    const take = Number(limit);
     const where = buildWhereClause({ kategori_id, status, kondisi, search });
 
-    // Parallel queries for better performance
-    
-    const [barangs, total] = await Promise.all([
-        prisma.barang.findMany({
-            where,
-            ...optimizedBarangQuery,
-            skip,
-            take,
-            orderBy: { createdAt: 'desc' }
-        }),
-        prisma.barang.count({ where })
-    ]);
+    // Ambil semua barang tanpa pagination
+    const barangs = await prisma.barang.findMany({
+        where,
+        ...optimizedBarangQuery,
+        orderBy: { createdAt: 'asc' }
+    });
 
-    // Add image URLs to response
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
     const barangsWithUrls = barangs.map(barang => ({
         ...barang,
-        foto_barang_url: barang.foto_barang ? FileHandler.getFileUrl(UploadCategory.BARANG, barang.foto_barang, baseUrl) : null
+        foto_barang_url: barang.foto_barang ? `uploads/barang/${barang.foto_barang}` : null
     }));
 
-    const totalPages = Math.ceil(total / take);
     const result = {
         message: "Barang retrieved successfully",
         data: barangsWithUrls,
-        pagination: {
-            current_page: Number(page),
-            total_pages: totalPages,
-            total_items: total,
-            items_per_page: take,
-            has_next_page: Number(page) < totalPages,
-            has_prev_page: Number(page) > 1
-        },
         cached: false,
         query_time: new Date().toISOString()
     };
 
-    // Cache the result (without URLs to save space)
     setCache(barangCache, cacheKey, { ...result, data: barangs });
-    
-    // Background prewarm (non-blocking)
-    if (barangCache.size < 50) { // Only prewarm if cache is not too full
-        setImmediate(() => prewarmCaches());
-    }
 
     res.status(200).json(result);
 });
-
 // Enhanced getBarangById to include image URL
 const getBarangById = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
@@ -706,18 +755,18 @@ const deleteBarang = asyncHandler(async (req: Request, res: Response, next: Next
     }
 
     // Delete associated image file if exists
-    let imageDeleted = false;
-    if (existing.foto_barang) {
-        try {
-            imageDeleted = await FileHandler.deleteFile(UploadCategory.BARANG, existing.foto_barang);
-            if (imageDeleted) {
-                console.log(`🗑️  Deleted barang image: ${existing.foto_barang}`);
-            }
-        } catch (error) {
-            console.error("Error deleting image file:", error);
-            // Continue with deletion even if image deletion fails
-        }
-    }
+    // let imageDeleted = false;
+    // if (existing.foto_barang) {
+    //     try {
+    //         imageDeleted = await FileHandler.deleteFile(UploadCategory.BARANG, existing.foto_barang);
+    //         if (imageDeleted) {
+    //             console.log(`🗑️  Deleted barang image: ${existing.foto_barang}`);
+    //         }
+    //     } catch (error) {
+    //         console.error("Error deleting image file:", error);
+    //         // Continue with deletion even if image deletion fails
+    //     }
+    // }
 
     const deleted = await prisma.barang.update({ 
         where: { id: Number(id) }, 
@@ -738,7 +787,7 @@ const deleteBarang = asyncHandler(async (req: Request, res: Response, next: Next
         message: "Barang deleted successfully", 
         data: deleted,
         cache_cleared: true,
-        image_deleted: imageDeleted,
+        // image_deleted: imageDeleted,
         image_filename: existing.foto_barang
     });
 });
@@ -891,10 +940,13 @@ const getDashboardStats = asyncHandler(async (req: Request, res: Response, next:
         prisma.barang.findMany({
             where: { deletedAt: null },
             select: { id: true, nama_barang: true, status: true, createdAt: true, updatedAt: true },
-            orderBy: { updatedAt: 'desc' },
+            orderBy: { updatedAt: 'asc' },
             take: 10
         })
     ]);
+
+    // Calculate 'tidak_tersedia' from status TIDAK_TERSEDIA
+    const tidakTersedia = await prisma.barang.count({ where: { deletedAt: null, status: StatusBarang.TIDAK_TERSEDIA } });
 
     const stats = {
         overview: {
@@ -902,7 +954,7 @@ const getDashboardStats = asyncHandler(async (req: Request, res: Response, next:
             tersedia,
             dipinjam,
             rusak,
-            tidak_tersedia: totalBarang - tersedia - dipinjam,
+            tidak_tersedia: tidakTersedia,
             utilization_rate: totalBarang > 0 ? Math.round((dipinjam / totalBarang) * 100) : 0
         },
         by_kategori: byKategori,

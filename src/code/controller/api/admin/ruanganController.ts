@@ -83,6 +83,7 @@ const optimizedRuanganQuery = {
         gedung: true,
         nama_ruangan: true,
         kode_ruangan: true,
+        status: true,
         createdAt: true,
         updatedAt: true,
         deletedAt: true
@@ -268,16 +269,19 @@ const CreateRuangan = asyncHandler(async (req: Request, res: Response) => {
         cache_cleared: true
     });
 });
-
 const GetRuanganMaster = asyncHandler(async (req: Request, res: Response) => {
-    const { gedung, nama_ruangan, kode_ruangan, page = 1, limit = 50 } = req.query;
-    const filters = { gedung, nama_ruangan, kode_ruangan, page: Number(page), limit: Number(limit) };
+    const { gedung, nama_ruangan, kode_ruangan, status } = req.query;
+    // Only include status if it's a valid StatusRuangan value
+    const filters: any = { gedung, nama_ruangan, kode_ruangan, status };
+    if (status !== undefined) filters.status = status;
+
     const cacheKey = getCacheKey('ruangan:list', filters);
 
     // Try cache first
     const cached = getCache(ruanganCache, cacheKey);
     if (cached) {
         return res.status(200).json({ 
+            status: "success",
             ...cached, 
             cached: true, 
             cache_timestamp: new Date().toISOString(),
@@ -285,44 +289,39 @@ const GetRuanganMaster = asyncHandler(async (req: Request, res: Response) => {
         });
     }
 
-    const where = buildWhereClause({ gedung, nama_ruangan, kode_ruangan });
-    
-    // Add pagination
-    const skip = (Number(page) - 1) * Number(limit);
-    const take = Number(limit);
+    // Build where clause with status filter
+    const where = buildWhereClause(filters);
 
-    const [ruangans, total] = await Promise.all([
-        prisma.ruangan.findMany({
-            where,
-            ...optimizedRuanganQuery,
-            orderBy: { createdAt: 'desc' },
-            skip,
-            take
-        }),
-        prisma.ruangan.count({ where })
-    ]);
+    // If status is provided, filter by StatusRuangan enum
+    if (filters.status !== undefined) {
+        where.status = filters.status;
+    }
 
-    const totalPages = Math.ceil(total / take);
+    // Ambil semua ruangan tanpa pagination
+    const ruangans = await prisma.ruangan.findMany({
+        where,
+        ...optimizedRuanganQuery,
+        orderBy: { createdAt: 'asc' }
+    });
+
+    // Tambahkan status pada setiap ruangan
+    const ruangansWithStatus = ruangans.map(r => ({
+        ...r,
+        status: r.status // langsung ambil dari database
+    }));
     const result = {
+        status: "success",
         message: "Ruangan retrieved successfully",
-        data: ruangans,
-        pagination: {
-            current_page: Number(page),
-            total_pages: totalPages,
-            total_items: total,
-            items_per_page: take,
-            has_next_page: Number(page) < totalPages,
-            has_prev_page: Number(page) > 1
-        },
-        count: ruangans.length,
+        data: ruangansWithStatus,
+        count: ruangansWithStatus.length,
         cached: false
     };
 
     // Cache the result
     setCache(ruanganCache, cacheKey, result);
-    
+
     // Background prewarm if cache is not full
-    if (ruanganCache.size < 100) {
+    if (ruanganCache.size < CACHE_CONFIG.MAX_CACHE_SIZE) {
         setImmediate(() => prewarmRuanganCaches());
     }
 
