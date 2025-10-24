@@ -131,6 +131,12 @@ const Login = asyncHandler(async (req: express.Request, res: express.Response) =
     //     aksi: 'LOGIN',
     //     tabel_terkait: 'User'
     // });
+    res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 6 * 60 * 60 * 1000 // 6 hours
+    });
     return res.status(200).json({
         message: "Login successful",
         data: loginResponse

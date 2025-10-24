@@ -7,8 +7,10 @@ import multer from 'multer';
 import { errorHandler, notFound } from "../code/middleware/error";
 import path from "node:path";
 import { error } from "node:console";
+import cookieParser from "cookie-parser";
 const app = express();
 app.use(express.json());
+app.use(cookieParser());
 
 app.use('/storage', express.static(path.join(process.cwd(), 'src', 'code', 'storage')));
 
