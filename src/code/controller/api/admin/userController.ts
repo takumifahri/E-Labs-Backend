@@ -41,7 +41,6 @@ const CreateUser = asyncHandler(async (req: express.Request, res: express.Respon
         }
     });
 });
-
 const getUserById = asyncHandler(async (req: express.Request, res: express.Response) => {
     const { uniqueId } = req.params;
 
@@ -65,6 +64,11 @@ const getUserById = asyncHandler(async (req: express.Request, res: express.Respo
     ];
     const totalPeringatan = warnings.reduce((sum, val) => sum + val, 0);
 
+    // Generate profilUrl jika ada gambar profil
+    const profilUrl = user.profil
+        ? FileHandler.getFileUrl(UploadCategory.PROFILE, user.profil)
+        : undefined;
+
     const userResponse: UserResponse = {
         id: user.id,
         uniqueId: user.uniqueId,
@@ -73,6 +77,7 @@ const getUserById = asyncHandler(async (req: express.Request, res: express.Respo
         NIM: user.NIM ?? undefined,
         semester: user.semester ?? undefined,
         profil: user.profil ?? undefined,
+        profilUrl,
         NIP: user.NIP ?? undefined,
         isBlocked: user.isBlocked ?? false,
         prodiId: user.prodiId ?? undefined,
@@ -92,67 +97,156 @@ const getUserById = asyncHandler(async (req: express.Request, res: express.Respo
     });
 });
 
+// const updateUser = asyncHandler(async (req: express.Request, res: express.Response) => {
+//     const { uniqueId } = req.params;
+//     if (!uniqueId) {
+//         throw new AppError("User ID is required", 400);
+//     }
+
+//     // Cek apakah ada data yang dikirim (body atau file)
+//     const isBodyEmpty = (!req.file && (!req.body || Object.keys(req.body).length === 0));
+//     if (isBodyEmpty) {
+//         throw new AppError("Request body is missing", 400);
+//     }
+
+//     // Build dynamic update data
+//     const updateData: any = { updatedAt: new Date() };
+//     const allowedFields = ['nama', 'email', 'roleId', 'NIM', 'NIP', 'semester', 'isBlocked', 'prodiId'];
+//     allowedFields.forEach(field => {
+//         if (req.body && req.body[field] !== undefined && req.body[field] !== '' && req.body[field] !== 'undefined') {
+//             // Konversi ke number jika field harus number
+//             if (['roleId', 'prodiId'].includes(field)) {
+//                 const val = req.body[field];
+//                 if (val !== undefined && val !== '' && val !== 'undefined') {
+//                     updateData[field] = Number(val);
+//                 }
+//             } else if (field === 'isBlocked') {
+//                 // Konversi boolean
+//                 updateData[field] = req.body[field] === 'true' || req.body[field] === true;
+//             } else {
+//                 updateData[field] = req.body[field];
+//             }
+//         }
+//     });
+//     allowedFields.forEach(field => {
+//         if (req.body && req.body[field] !== undefined) {
+//             updateData[field] = req.body[field];
+//         }
+//     });
+
+//     // Jika ada file gambar dikirim
+//     if (req.file) {
+//         const user = await prisma.user.findUnique({ where: { uniqueId } });
+//         if (user?.profil) {
+//             await FileHandler.deleteFile(UploadCategory.PROFILE, user.profil);
+//         }
+//         updateData.profil = req.file.filename; // simpan nama file
+//     }
+//     const updatedUser = await prisma.user.update({
+//         where: { uniqueId },
+//         data: updateData,
+//         include: { role: true, prodi: true }
+//     });
+
+//     const warnings = [
+//         updatedUser.firstWarn ? 1 : 0,
+//         updatedUser.secondWarn ? 1 : 0,
+//         updatedUser.thirdWarn ? 1 : 0
+//     ];
+//     const totalPeringatan = warnings.reduce((sum, val) => sum + val, 0);
+
+//     const profilUrl = updatedUser.profil
+//         ? FileHandler.getFileUrl(UploadCategory.PROFILE, updatedUser.profil)
+//         : undefined;
+//     const userResponse: UserResponse = {
+//         id: updatedUser.id,
+//         uniqueId: updatedUser.uniqueId,
+//         nama: updatedUser.nama,
+//         email: updatedUser.email,
+//         NIM: updatedUser.NIM ?? undefined,
+//         semester: updatedUser.semester ?? undefined,
+//         profil: updatedUser.profil ?? undefined,
+//         profilUrl,
+//         NIP: updatedUser.NIP ?? undefined,
+//         isBlocked: updatedUser.isBlocked ?? false,
+//         prodiId: updatedUser.prodiId ?? undefined,
+//         prodi: updatedUser.prodiId && updatedUser.prodi ? updatedUser.prodi.kode_prodi : undefined,
+//         totalPeringatan,
+//         role: {
+//             ...updatedUser.role,
+//             deletedAt: updatedUser.role.deletedAt ?? undefined
+//         },
+//         createdAt: updatedUser.createdAt,
+//         updatedAt: updatedUser.updatedAt,
+//     };
+
+//     return res.status(200).json({
+//         message: "User updated successfully",
+//         data: userResponse
+//     });
+// });
+
 const updateUser = asyncHandler(async (req: express.Request, res: express.Response) => {
     const { uniqueId } = req.params;
-    if (!uniqueId) {
-        throw new AppError("User ID is required", 400);
-    }
+    if (!uniqueId) throw new AppError("User ID is required", 400);
 
-    // Cek apakah ada data yang dikirim (body atau file)
-    const isBodyEmpty = (!req.file && (!req.body || Object.keys(req.body).length === 0));
-    if (isBodyEmpty) {
-        throw new AppError("Request body is missing", 400);
-    }
+    // Debug log
+    console.log('🔍 Update User Debug:');
+    console.log('Request body:', req.body);
+    console.log('Request file:', req.file);
 
-    // Build dynamic update data
-    const updateData: any = { updatedAt: new Date() };
-    const allowedFields = ['nama', 'email', 'roleId', 'NIM', 'NIP', 'semester', 'isBlocked', 'prodiId'];
-    allowedFields.forEach(field => {
-        if (req.body && req.body[field] !== undefined && req.body[field] !== '' && req.body[field] !== 'undefined') {
-            // Konversi ke number jika field harus number
-            if (['roleId', 'prodiId'].includes(field)) {
-                const val = req.body[field];
-                if (val !== undefined && val !== '' && val !== 'undefined') {
-                    updateData[field] = Number(val);
-                }
-            } else if (field === 'isBlocked') {
-                // Konversi boolean
-                updateData[field] = req.body[field] === 'true' || req.body[field] === true;
-            } else {
-                updateData[field] = req.body[field];
-            }
-        }
-    });
-    allowedFields.forEach(field => {
-        if (req.body && req.body[field] !== undefined) {
-            updateData[field] = req.body[field];
-        }
-    });
+    // Ambil user lama
+    const existing = await prisma.user.findUnique({ where: { uniqueId } });
+    if (!existing) throw new AppError("User not found", 404);
 
-    // Jika ada file gambar dikirim
+    // Handle file upload (profil)
+    let newProfil = existing.profil;
     if (req.file) {
-        const user = await prisma.user.findUnique({ where: { uniqueId } });
-        if (user?.profil) {
-            await FileHandler.deleteFile(UploadCategory.PROFILE, user.profil);
+        if (existing.profil) {
+            await FileHandler.deleteFile(UploadCategory.PROFILE, existing.profil);
         }
-        updateData.profil = req.file.filename; // simpan nama file
+        newProfil = req.file.filename;
+        console.log(`📸 User profile image updated: ${newProfil}`);
     }
+
+    // Build updateData robust (hanya field valid dan tipe benar)
+    const updateData: any = { updatedAt: new Date() };
+    if (req.body.nama !== undefined && req.body.nama !== '') updateData.nama = req.body.nama;
+    if (req.body.email !== undefined && req.body.email !== '') updateData.email = req.body.email;
+    if (req.body.roleId !== undefined && req.body.roleId !== '' && req.body.roleId !== 'undefined') {
+        // Pastikan roleId number
+        const roleId = Number(req.body.roleId);
+        if (!isNaN(roleId)) updateData.roleId = roleId;
+    }
+    if (req.body.NIM !== undefined && req.body.NIM !== '') updateData.NIM = req.body.NIM;
+    if (req.body.NIP !== undefined && req.body.NIP !== '') updateData.NIP = req.body.NIP;
+    if (req.body.semester !== undefined && req.body.semester !== '') updateData.semester = Number(req.body.semester);
+    if (req.body.prodiId !== undefined && req.body.prodiId !== '' && req.body.prodiId !== 'undefined') {
+        const prodiId = Number(req.body.prodiId);
+        if (!isNaN(prodiId)) updateData.prodiId = prodiId;
+    }
+    if (req.body.isBlocked !== undefined) {
+        updateData.isBlocked = req.body.isBlocked === 'true' || req.body.isBlocked === true;
+    }
+    if (req.file) updateData.profil = newProfil;
+
+    // Jika tidak ada data valid, error
+    if (Object.keys(updateData).length === 1 && !req.file) {
+        throw new AppError("No data provided to update", 400);
+    }
+
+    // Update user
     const updatedUser = await prisma.user.update({
         where: { uniqueId },
         data: updateData,
         include: { role: true, prodi: true }
     });
 
-    const warnings = [
-        updatedUser.firstWarn ? 1 : 0,
-        updatedUser.secondWarn ? 1 : 0,
-        updatedUser.thirdWarn ? 1 : 0
-    ];
-    const totalPeringatan = warnings.reduce((sum, val) => sum + val, 0);
-
+    // Build response dengan URL profil
     const profilUrl = updatedUser.profil
         ? FileHandler.getFileUrl(UploadCategory.PROFILE, updatedUser.profil)
         : undefined;
+
     const userResponse: UserResponse = {
         id: updatedUser.id,
         uniqueId: updatedUser.uniqueId,
@@ -166,7 +260,6 @@ const updateUser = asyncHandler(async (req: express.Request, res: express.Respon
         isBlocked: updatedUser.isBlocked ?? false,
         prodiId: updatedUser.prodiId ?? undefined,
         prodi: updatedUser.prodiId && updatedUser.prodi ? updatedUser.prodi.kode_prodi : undefined,
-        totalPeringatan,
         role: {
             ...updatedUser.role,
             deletedAt: updatedUser.role.deletedAt ?? undefined
@@ -175,12 +268,18 @@ const updateUser = asyncHandler(async (req: express.Request, res: express.Respon
         updatedAt: updatedUser.updatedAt,
     };
 
-    return res.status(200).json({
+    res.status(200).json({
         message: "User updated successfully",
-        data: userResponse
+        data: userResponse,
+        file_info: req.file ? {
+            original_name: req.file.originalname,
+            filename: newProfil,
+            size: req.file.size,
+            mime_type: req.file.mimetype
+        } : null,
+        updated_fields: Object.keys(updateData).filter(key => key !== 'updatedAt')
     });
 });
-
 const ListUsers = asyncHandler(async (req: express.Request, res: express.Response) => {
     const users = await prisma.user.findMany({
         where: { deletedAt: null },
@@ -204,6 +303,9 @@ const ListUsers = asyncHandler(async (req: express.Request, res: express.Respons
             user.thirdWarn ? 1 : 0
         ];
         const totalPeringatan = warnings.reduce((sum, val) => sum + val, 0);
+        const profilUrl = user.profil
+            ? FileHandler.getFileUrl(UploadCategory.PROFILE, user.profil)
+            : undefined;
 
         return {
             id: user.id,
@@ -213,6 +315,7 @@ const ListUsers = asyncHandler(async (req: express.Request, res: express.Respons
             NIM: user.NIM ?? undefined,
             semester: user.semester ?? undefined,
             profil: user.profil ?? undefined,
+            profilUrl,
             NIP: user.NIP ?? undefined,
             isBlocked: user.isBlocked ?? false,
             prodiId: user.prodiId ?? undefined,

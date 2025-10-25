@@ -160,7 +160,7 @@ export class FileHandler {
     static getFileUrl(category: UploadCategory, filename: string, baseUrl?: string): string {
         const defaultBaseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3333}`;
         const finalBaseUrl = baseUrl || defaultBaseUrl;
-        return `${finalBaseUrl}/storage/uploads/${category}/${filename}`;
+        return `${category}/${filename}`;
     }
 
     // Get file URL from full path (new method)
