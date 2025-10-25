@@ -630,6 +630,51 @@ const QRGenerator = asyncHandler(async (req: Request, res: Response) => {
     });
 });
 
+const deleteImageQR = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id || isNaN(parseInt(id))) {
+        throw new AppError("Valid ruangan ID is required", 400);
+    }
+    try {
+        const ruangan = await prisma.ruangan.findUnique({
+            where: { id: parseInt(id) },
+            select: { id: true, QR_Image: true }
+        });
+        if (!ruangan) {
+            throw new AppError("Ruangan not found", 404);
+        }
+        if (!ruangan.QR_Image) {
+            throw new AppError("QR image not found", 404);
+        }
+
+        // Delete the QR image file
+        const uploadDir = FileHandler.getUploadDir(UploadCategory.RUANGAN);
+        const filePath = path.join(uploadDir, ruangan.QR_Image);
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+
+        // Update database to remove QR_Image reference
+        await prisma.ruangan.update({
+            where: { id: ruangan.id },
+            data: { QR_Image: null }
+        });
+
+        // Clear all related caches and prewarm again
+        clearAllRuanganCaches();
+        setImmediate(() => prewarmRuanganCaches());
+
+        return res.status(200).json({
+            message: "QR image deleted successfully",
+            data: { id: ruangan.id }
+        });
+    } catch (error) {
+        throw new AppError("Failed to delete QR image", 500);
+    }
+
+});
+
+
 const GetRuanganStats = asyncHandler(async (req: Request, res: Response) => {
     const cacheKey = 'stats:ruangan';
     const cached = getCache(ruanganStatsCache, cacheKey);
@@ -771,10 +816,13 @@ const RuanganController = {
     DeleteRuangan,
     RestoreRuangan,
     GetGedungList,
+    
     GetRuanganStats,
     GetRuanganCacheStats,
     WarmRuanganCache,
-    QRGenerator
+
+    QRGenerator,
+    deleteImageQR
 }
 
 export default RuanganController;

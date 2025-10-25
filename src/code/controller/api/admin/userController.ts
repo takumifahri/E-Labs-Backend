@@ -5,8 +5,8 @@ import { CreateUserRequest, UpdateUserRequest, UserResponse } from '../../../mod
 import { AppError, asyncHandler } from '../../../middleware/error';
 import { HashPassword } from '../../../utils/hash';
 import { uploadMiddlewares, FileHandler, UploadCategory } from '../../../utils/FileHandler';
-
-const prisma = new PrismaClient();      
+import { transporter } from '../../../utils/Mail.config';
+const prisma = new PrismaClient();
 
 const CreateUser = asyncHandler(async (req: express.Request, res: express.Response) => {
     const { nama, email, password, roleId }: CreateUserRequest = req.body;
@@ -75,7 +75,7 @@ const getUserById = asyncHandler(async (req: express.Request, res: express.Respo
         nama: user.nama,
         email: user.email,
         NIM: user.NIM ?? undefined,
-        semester: user.semester ?? undefined,
+        semester: user.semester !== null && user.semester !== undefined ? user.semester : undefined,
         profil: user.profil ?? undefined,
         profilUrl,
         NIP: user.NIP ?? undefined,
@@ -96,95 +96,6 @@ const getUserById = asyncHandler(async (req: express.Request, res: express.Respo
         data: userResponse
     });
 });
-
-// const updateUser = asyncHandler(async (req: express.Request, res: express.Response) => {
-//     const { uniqueId } = req.params;
-//     if (!uniqueId) {
-//         throw new AppError("User ID is required", 400);
-//     }
-
-//     // Cek apakah ada data yang dikirim (body atau file)
-//     const isBodyEmpty = (!req.file && (!req.body || Object.keys(req.body).length === 0));
-//     if (isBodyEmpty) {
-//         throw new AppError("Request body is missing", 400);
-//     }
-
-//     // Build dynamic update data
-//     const updateData: any = { updatedAt: new Date() };
-//     const allowedFields = ['nama', 'email', 'roleId', 'NIM', 'NIP', 'semester', 'isBlocked', 'prodiId'];
-//     allowedFields.forEach(field => {
-//         if (req.body && req.body[field] !== undefined && req.body[field] !== '' && req.body[field] !== 'undefined') {
-//             // Konversi ke number jika field harus number
-//             if (['roleId', 'prodiId'].includes(field)) {
-//                 const val = req.body[field];
-//                 if (val !== undefined && val !== '' && val !== 'undefined') {
-//                     updateData[field] = Number(val);
-//                 }
-//             } else if (field === 'isBlocked') {
-//                 // Konversi boolean
-//                 updateData[field] = req.body[field] === 'true' || req.body[field] === true;
-//             } else {
-//                 updateData[field] = req.body[field];
-//             }
-//         }
-//     });
-//     allowedFields.forEach(field => {
-//         if (req.body && req.body[field] !== undefined) {
-//             updateData[field] = req.body[field];
-//         }
-//     });
-
-//     // Jika ada file gambar dikirim
-//     if (req.file) {
-//         const user = await prisma.user.findUnique({ where: { uniqueId } });
-//         if (user?.profil) {
-//             await FileHandler.deleteFile(UploadCategory.PROFILE, user.profil);
-//         }
-//         updateData.profil = req.file.filename; // simpan nama file
-//     }
-//     const updatedUser = await prisma.user.update({
-//         where: { uniqueId },
-//         data: updateData,
-//         include: { role: true, prodi: true }
-//     });
-
-//     const warnings = [
-//         updatedUser.firstWarn ? 1 : 0,
-//         updatedUser.secondWarn ? 1 : 0,
-//         updatedUser.thirdWarn ? 1 : 0
-//     ];
-//     const totalPeringatan = warnings.reduce((sum, val) => sum + val, 0);
-
-//     const profilUrl = updatedUser.profil
-//         ? FileHandler.getFileUrl(UploadCategory.PROFILE, updatedUser.profil)
-//         : undefined;
-//     const userResponse: UserResponse = {
-//         id: updatedUser.id,
-//         uniqueId: updatedUser.uniqueId,
-//         nama: updatedUser.nama,
-//         email: updatedUser.email,
-//         NIM: updatedUser.NIM ?? undefined,
-//         semester: updatedUser.semester ?? undefined,
-//         profil: updatedUser.profil ?? undefined,
-//         profilUrl,
-//         NIP: updatedUser.NIP ?? undefined,
-//         isBlocked: updatedUser.isBlocked ?? false,
-//         prodiId: updatedUser.prodiId ?? undefined,
-//         prodi: updatedUser.prodiId && updatedUser.prodi ? updatedUser.prodi.kode_prodi : undefined,
-//         totalPeringatan,
-//         role: {
-//             ...updatedUser.role,
-//             deletedAt: updatedUser.role.deletedAt ?? undefined
-//         },
-//         createdAt: updatedUser.createdAt,
-//         updatedAt: updatedUser.updatedAt,
-//     };
-
-//     return res.status(200).json({
-//         message: "User updated successfully",
-//         data: userResponse
-//     });
-// });
 
 const updateUser = asyncHandler(async (req: express.Request, res: express.Response) => {
     const { uniqueId } = req.params;
@@ -253,7 +164,7 @@ const updateUser = asyncHandler(async (req: express.Request, res: express.Respon
         nama: updatedUser.nama,
         email: updatedUser.email,
         NIM: updatedUser.NIM ?? undefined,
-        semester: updatedUser.semester ?? undefined,
+        semester: updatedUser.semester !== null && updatedUser.semester !== undefined ? updatedUser.semester : undefined,
         profil: updatedUser.profil ?? undefined,
         profilUrl,
         NIP: updatedUser.NIP ?? undefined,
@@ -280,16 +191,17 @@ const updateUser = asyncHandler(async (req: express.Request, res: express.Respon
         updated_fields: Object.keys(updateData).filter(key => key !== 'updatedAt')
     });
 });
+
 const ListUsers = asyncHandler(async (req: express.Request, res: express.Response) => {
     const users = await prisma.user.findMany({
         where: { deletedAt: null },
         orderBy: { createdAt: 'asc' },
-        
+
         include: { role: true, prodi: true }
     });
 
     if (users.length === 0) {
-        return res.status(200).json({ 
+        return res.status(200).json({
             message: "No users found",
             data: []
         });
@@ -313,7 +225,7 @@ const ListUsers = asyncHandler(async (req: express.Request, res: express.Respons
             nama: user.nama,
             email: user.email,
             NIM: user.NIM ?? undefined,
-            semester: user.semester ?? undefined,
+            semester: user.semester !== null && user.semester !== undefined ? user.semester : undefined,
             profil: user.profil ?? undefined,
             profilUrl,
             NIP: user.NIP ?? undefined,
@@ -356,19 +268,19 @@ const deactivatedUser = asyncHandler(async (req: express.Request, res: express.R
     if (!id) {
         throw new AppError("User ID is required", 400);
     }
-    try{
+    try {
         // cek apakah user udah isBlocked True
         const user = await prisma.user.findUnique({
             where: { id: parseInt(id) }
         });
-        if(user?.isBlocked){
+        if (user?.isBlocked) {
             throw new AppError("User is already deactivated", 400);
         }
         await prisma.user.update({
             where: { id: parseInt(id) },
             data: { isBlocked: true }
         });
-    } catch(error){
+    } catch (error) {
         throw new AppError("Failed to deactivate user", 500);
     }
     return res.status(200).json({ message: "User deactivated successfully" });
@@ -379,22 +291,105 @@ const reactivatedUser = asyncHandler(async (req: express.Request, res: express.R
     if (!id) {
         throw new AppError("User ID is required", 400);
     }
-    try{
+    try {
         // cek apakah user udah isBlocked True
         const user = await prisma.user.findUnique({
             where: { id: parseInt(id) }
         });
-        if(user?.isBlocked === false){
+        if (user?.isBlocked === false) {
             throw new AppError("User is already reactivated", 400);
         }
         await prisma.user.update({
             where: { id: parseInt(id) },
-            data: { isBlocked: false }
+            data: { isBlocked: false, firstWarn: false, secondWarn: false, thirdWarn: false }
         });
-    } catch(error){
+    } catch (error) {
         throw new AppError("Failed to reactivate user", 500);
     }
     return res.status(200).json({ message: "User reactivated successfully" });
+});
+
+const giveWarning = asyncHandler(async (req: express.Request, res: express.Response) => {
+    const { uniqueId } = req.params;
+    if (!uniqueId) {
+        throw new AppError("User ID is required", 400);
+    }
+    try {
+        const user = await prisma.user.findUnique({ where: { uniqueId } });
+        if (!user) {
+            throw new AppError("User not found", 404);
+        }
+
+        let updateData: any = { updatedAt: new Date() };
+        let warningGiven: string | null = null;
+        let warningCount = 0;
+        let warningText: string = '';
+
+        if (!user.firstWarn) {
+            updateData.firstWarn = true;
+            warningGiven = "firstWarn";
+            warningCount = 1;
+        } else if (!user.secondWarn) {
+            updateData.secondWarn = true;
+            warningGiven = "secondWarn";
+            warningCount = 2;
+        } else if (!user.thirdWarn) {
+            updateData.thirdWarn = true;
+            warningGiven = "thirdWarn";
+            warningCount = 3;
+        } else if (!user.isBlocked) {
+            updateData.isBlocked = true;
+            warningGiven = "isBlocked";
+            warningCount = 4;
+        } else {
+            return res.status(400).json({ message: "User already has all warnings and is blocked" });
+        }
+
+        // Compose interactive warning text
+        if (warningGiven === "isBlocked") {
+            warningText = `Kamu sudah ditegur sebanyak 3 kali, dan akun kamu telah diblokir karena pelanggaran berulang. Tolong gunakan sistem dengan bijak. Salam, admin e-labs+`;
+        } else {
+            warningText = `Kamu sudah ditegur sebanyak ${warningCount} kali, tolong gunakan sistem dengan bijak. Salam, admin e-labs+`;
+        }
+
+        await prisma.user.update({
+            where: { uniqueId },
+            data: updateData
+        });
+
+        // Kirim email peringatan
+        if (user.email) {
+            await transporter.sendMail({
+                from: process.env.SMTP_FROM || '"Admin E-Labs" <kagawahizashi@gmail.com>',
+                to: user.email,
+                subject: "Peringatan Akun E-Labs",
+                text: warningText,
+                html: `
+                        <div style="font-family: Arial, sans-serif; background: #f9f9f9; padding: 24px;">
+                            <div style="background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #eee; padding: 24px;">
+                                <h2 style="color: #d32f2f;">⚠️ Peringatan Akun E-Labs</h2>
+                                <p style="font-size: 16px; color: #333;">
+                                    ${warningText}
+                                </p>
+                                <div style="margin-top: 24px;">
+                                    <a href="http://localhost:3000/auth/login" style="background: #1976d2; color: #fff; padding: 10px 20px; border-radius: 4px; text-decoration: none; font-weight: bold;">
+                                        Login ke E-Labs
+                                    </a>
+                                </div>
+                                <hr style="margin: 32px 0;">
+                                <p style="font-size: 13px; color: #888;">
+                                    Jika ada pertanyaan, silakan hubungi admin melalui <a href="mailto:support@yourdomain.com">support@yourdomain.com</a>.
+                                </p>
+                            </div>
+                        </div>
+                    `
+            });
+        }
+
+        return res.status(200).json({ message: `Warning '${warningGiven}' given to user successfully and email sent` });
+    } catch (error) {
+        throw new AppError(`Failed to give warning to user ${error}`, 500);
+    }
 });
 
 const getDashboardStats = asyncHandler(async (req: express.Request, res: express.Response) => {
@@ -471,6 +466,22 @@ const getDashboardStats = asyncHandler(async (req: express.Request, res: express
         }
     });
 });
+
+const getListProdi = asyncHandler(async (req: express.Request, res: express.Response) => {
+    try {
+        const prodiList = await prisma.masterProdi.findMany({
+            where: { deletedAt: null },
+            orderBy: { nama_prodi: 'asc' }
+        });
+        return res.status(200).json({
+            message: "Prodi list retrieved successfully",
+            data: prodiList
+        });
+    } catch (error) {
+        throw new AppError("Failed to retrieve prodi list", 500);
+    }
+});
+
 const UserController = {
     CreateUser,
     getUserById,
@@ -480,7 +491,9 @@ const UserController = {
 
     deactivatedUser,
     getDashboardStats,
-    reactivatedUser
+    getListProdi,
+    reactivatedUser,
+    giveWarning
 };
 
 export default UserController;

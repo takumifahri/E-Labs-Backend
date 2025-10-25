@@ -56,7 +56,7 @@ const Register = asyncHandler(async (req: express.Request, res: express.Response
         roles: registUser.role.nama_role,
         NIM: registUser.NIM ?? undefined,
         NIP: registUser.NIP ?? undefined,
-        semester: registUser.semester ?? undefined,
+        semester: typeof registUser.semester === 'number' ? registUser.semester : undefined,
         createdAt: registUser.createdAt
     };
     // await logActivity({
@@ -127,7 +127,7 @@ const Login = asyncHandler(async (req: express.Request, res: express.Response) =
         nama: ValidatingUser.nama,
         roles: ValidatingUser.role.nama_role,
         NIM: ValidatingUser.NIM ?? undefined,
-        semester: ValidatingUser.semester ?? undefined,
+        semester: typeof ValidatingUser.semester === 'number' ? ValidatingUser.semester : undefined,
         token: token,
         createdAt: ValidatingUser.createdAt,
         isActive: true

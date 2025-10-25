@@ -52,6 +52,11 @@ master_ruangan_barang_router.post('/ruangan/generateQr/:id',
     AuthMiddleware.Checkroles(['superadmin', 'pengelola']), 
     RuanganController.QRGenerator
 );
+master_ruangan_barang_router.delete('/ruangan/QR/delete/:id', 
+    authMiddleware, 
+    AuthMiddleware.Checkroles(['superadmin', 'pengelola']), 
+    RuanganController.deleteImageQR
+);
 
 
 // BARANG ROUTES - Fixed order: auth -> roleCheck -> upload (if needed) -> controller
@@ -67,11 +72,18 @@ master_ruangan_barang_router.post('/barang',
     barangImageUpload,  // Upload middleware after role check
     BarangController.createBarang
 );
+
 master_ruangan_barang_router.get('/barang/dashboard', 
     authMiddleware, 
     AuthMiddleware.Checkroles(AllRoles),
     BarangController.getDashboardStats
 
+);
+
+master_ruangan_barang_router.get('/barang/kategori', 
+    authMiddleware, 
+    AuthMiddleware.Checkroles(AllRoles),
+    BarangController.getAllKategori
 );
 
 master_ruangan_barang_router.get('/barang/:id', 

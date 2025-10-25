@@ -6,7 +6,11 @@ const AdminUserRouter = express.Router();
 const authMiddleware = AuthMiddleware.authMiddleware;
 const userUpload = FileHandler.createUploadMiddleware(UploadCategory.PROFILE, 'image', 'profile', 1, 'foto_profile');
 const AccessRoles = ['superadmin', 'pengelola'];
+
+AdminUserRouter.get('/prodi', authMiddleware, AuthMiddleware.Checkroles(AccessRoles), UserController.getListProdi);
+
 AdminUserRouter.get('/:uniqueId', authMiddleware, AuthMiddleware.Checkroles(AccessRoles), UserController.getUserById);
+
 AdminUserRouter.patch(
     '/:uniqueId',
     authMiddleware,
@@ -31,4 +35,7 @@ AdminUserRouter.get('/dashboard/stats', authMiddleware, AuthMiddleware.Checkrole
 
 AdminUserRouter.patch('/:id/deactivate', authMiddleware, AuthMiddleware.Checkroles(AccessRoles), UserController.deactivatedUser);
 AdminUserRouter.patch('/:id/reactivate', authMiddleware, AuthMiddleware.Checkroles(AccessRoles), UserController.reactivatedUser);
+
+AdminUserRouter.post('/:uniqueId/warning', authMiddleware, AuthMiddleware.Checkroles(AccessRoles), UserController.giveWarning);
+
 export default AdminUserRouter;

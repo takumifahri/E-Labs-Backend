@@ -68,7 +68,7 @@ model User {
   uniqueId          String               @unique @default(cuid())
   roleId            Int                  @default(1)
   prodiId           Int?
-  semester          String?
+  semester          Int?                
   profil            String?
   email             String               @unique
   nama              String

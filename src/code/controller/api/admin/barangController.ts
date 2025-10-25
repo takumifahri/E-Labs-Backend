@@ -536,6 +536,48 @@ const createBarang = asyncHandler(async (req: Request, res: Response, next: Next
     });
 });
 
+const getAllKategori = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const { nama_kategori } = req.query;
+    const cacheKey = getCacheKey('kategori:all', { nama_kategori });
+    // langsung try
+    try{
+        // ambil dari table kategori_barang
+        const cached = getCache(kategoriCache, cacheKey);
+        if (cached) {
+            return res.status(200).json({
+                message: "Kategori retrieved successfully",
+                data: cached,
+                cached: true,
+                cache_timestamp: new Date().toISOString(),
+                cache_stats: {
+                    hits: kategoriCache.get(cacheKey)?.hits || 0,
+                    total_cached_queries: kategoriCache.size
+                }
+            });
+        }
+        const where: any = { deletedAt: null };
+        if (nama_kategori) {
+            where.nama_kategori = { contains: String(nama_kategori), mode: 'insensitive' };
+        }
+        const categories = await prisma.kategori_Barang.findMany({
+            where,
+            select: { id: true, nama_kategori: true },
+            orderBy: { nama_kategori: 'asc' }
+        });
+        setCache(kategoriCache, cacheKey, categories, CACHE_CONFIG.KATEGORI_TTL);
+        res.status(200).json({
+            message: "Kategori retrieved successfully",
+            data: categories,
+            cached: false,
+            query_time: new Date().toISOString()
+        });
+
+    }catch(error){
+        console.error('❌ Error fetching kategori:', error);
+        throw new AppError("Failed to fetch kategori", 500);
+    }
+
+});
 // Enhanced getAllBarang to include image URLs
 // const getAllBarang = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
 //     const { page = 1, limit = 10, kategori_id, status, kondisi, search } = req.query;
@@ -979,7 +1021,8 @@ const BarangController = {
     restoreBarang,
     warmBarangCache,
     getCacheStats,
-    getDashboardStats
+    getDashboardStats,
+    getAllKategori
 };
 
 export default BarangController;

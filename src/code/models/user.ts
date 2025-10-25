@@ -17,7 +17,7 @@ export interface User {
     role: Role;
 
     NIM?: string;
-    semester?: string;
+    semester?: number;
 
     NIP?: string;
 
@@ -40,7 +40,7 @@ export interface UpdateUserRequest {
     roleId?: number;
     NIM?: string;
     NIP?: string;
-    semester?: string;
+    semester?: number;
     profil?: string;
 }
 
@@ -51,7 +51,7 @@ export interface UserResponse {
     email: string;
 
     NIM?: string;
-    semester?: string;
+    semester?: number;
     profilUrl?: string;
     profil?: string;
     NIP?: string;
