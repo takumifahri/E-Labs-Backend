@@ -135,7 +135,7 @@ const Login = asyncHandler(async (req: express.Request, res: express.Response) =
 
     res.cookie('token', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env.NODE_ENV === 'production' ? false : false,
         sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
         domain: process.env.COOKIE_DOMAIN || '202.10.36.217', // ganti dengan IP/domain sesuai akses client
         maxAge: 6 * 60 * 60 * 1000
