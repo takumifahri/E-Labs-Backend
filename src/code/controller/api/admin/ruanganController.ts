@@ -2,7 +2,10 @@ import { Request, Response } from "express";
 import { CreateRuanganRequest, UpdateRuanganRequest } from "../../../models/Ruangan";
 import { PrismaClient } from '@prisma/client';
 import { AppError, asyncHandler } from '../../../middleware/error';
-
+import QRCode from "qrcode";
+import { FileHandler, UploadCategory } from '../../../utils/FileHandler'; // sesuaikan path
+import fs from 'fs';
+import path from 'path';
 // Remove Accelerate, use local database only
 const prisma = new PrismaClient({
     datasources: {
@@ -28,7 +31,7 @@ const CACHE_CONFIG = {
 };
 
 // Cache helpers
-const getCacheKey = (prefix: string, params?: any) => 
+const getCacheKey = (prefix: string, params?: any) =>
     params ? `${prefix}:${JSON.stringify(params)}` : prefix;
 
 const setCache = (cache: Map<string, any>, key: string, data: any, ttl: number = CACHE_CONFIG.DEFAULT_TTL) => {
@@ -39,9 +42,9 @@ const setCache = (cache: Map<string, any>, key: string, data: any, ttl: number =
             cache.delete(firstKey);
         }
     }
-    
-    cache.set(key, { 
-        data, 
+
+    cache.set(key, {
+        data,
         expiry: Date.now() + ttl,
         hits: 0,
         created: Date.now()
@@ -51,12 +54,12 @@ const setCache = (cache: Map<string, any>, key: string, data: any, ttl: number =
 const getCache = (cache: Map<string, any>, key: string) => {
     const cached = cache.get(key);
     if (!cached) return null;
-    
+
     if (Date.now() > cached.expiry) {
         cache.delete(key);
         return null;
     }
-    
+
     // Track cache hits
     cached.hits += 1;
     return cached.data;
@@ -83,6 +86,8 @@ const optimizedRuanganQuery = {
         gedung: true,
         nama_ruangan: true,
         kode_ruangan: true,
+        status: true,
+        QR_Image: true,
         createdAt: true,
         updatedAt: true,
         deletedAt: true
@@ -91,14 +96,14 @@ const optimizedRuanganQuery = {
 
 const buildWhereClause = (filters: any) => {
     const where: any = { deletedAt: null };
-    
+
     if (filters.gedung) where.gedung = filters.gedung;
-    if (filters.nama_ruangan) where.nama_ruangan = { 
-        contains: filters.nama_ruangan, 
-        mode: 'insensitive' 
+    if (filters.nama_ruangan) where.nama_ruangan = {
+        contains: filters.nama_ruangan,
+        mode: 'insensitive'
     };
     if (filters.kode_ruangan) where.kode_ruangan = filters.kode_ruangan;
-    
+
     return where;
 };
 
@@ -146,7 +151,7 @@ const prewarmRuanganCaches = async () => {
                 _count: { id: true },
                 orderBy: { gedung: 'asc' }
             });
-            
+
             setCache(gedungCache, gedungCacheKey, buildings, CACHE_CONFIG.GEDUNG_TTL);
         }
 
@@ -199,10 +204,10 @@ const prewarmRuanganCaches = async () => {
             });
 
             if (detail && !detail.deletedAt) {
-                const result = { 
-                    message: "Ruangan retrieved successfully", 
-                    data: detail, 
-                    cached: false 
+                const result = {
+                    message: "Ruangan retrieved successfully",
+                    data: detail,
+                    cached: false
                 };
                 setCache(ruanganCache, detailKey, result, CACHE_CONFIG.DETAIL_TTL);
             }
@@ -228,16 +233,16 @@ const CreateRuangan = asyncHandler(async (req: Request, res: Response) => {
     // Check if kode_ruangan already exists (use cache for recent checks)
     const checkCacheKey = getCacheKey('ruangan:check', { kode_ruangan });
     let existingRuangan = getCache(ruanganCache, checkCacheKey);
-    
+
     if (!existingRuangan) {
         existingRuangan = await prisma.ruangan.findFirst({
-            where: { 
+            where: {
                 kode_ruangan: kode_ruangan,
                 deletedAt: null
             },
             select: { id: true, kode_ruangan: true }
         });
-        
+
         // Cache the check result for a short time
         setCache(ruanganCache, checkCacheKey, existingRuangan, 60 * 1000); // 1 minute
     }
@@ -258,7 +263,7 @@ const CreateRuangan = asyncHandler(async (req: Request, res: Response) => {
 
     // Clear all related caches
     clearAllRuanganCaches();
-    
+
     // Trigger background cache refresh
     setImmediate(() => prewarmRuanganCaches());
 
@@ -268,61 +273,68 @@ const CreateRuangan = asyncHandler(async (req: Request, res: Response) => {
         cache_cleared: true
     });
 });
-
 const GetRuanganMaster = asyncHandler(async (req: Request, res: Response) => {
-    const { gedung, nama_ruangan, kode_ruangan, page = 1, limit = 50 } = req.query;
-    const filters = { gedung, nama_ruangan, kode_ruangan, page: Number(page), limit: Number(limit) };
+    const { gedung, nama_ruangan, kode_ruangan, status } = req.query;
+    const filters: any = { gedung, nama_ruangan, kode_ruangan, status };
+    if (status !== undefined) filters.status = status;
+
     const cacheKey = getCacheKey('ruangan:list', filters);
 
     // Try cache first
     const cached = getCache(ruanganCache, cacheKey);
     if (cached) {
-        return res.status(200).json({ 
-            ...cached, 
-            cached: true, 
+        // Add QR_Image URL for each ruangan (just /ruangan/filename)
+        const dataWithUrls = cached.data.map((item: any) => ({
+            ...item,
+            QR_Image_url: item.QR_Image ? `ruangan/${item.QR_Image}` : null
+        }));
+
+        return res.status(200).json({
+            status: "success",
+            ...cached,
+            data: dataWithUrls,
+            cached: true,
             cache_timestamp: new Date().toISOString(),
             cache_hits: ruanganCache.get(cacheKey)?.hits || 0
         });
     }
 
-    const where = buildWhereClause({ gedung, nama_ruangan, kode_ruangan });
-    
-    // Add pagination
-    const skip = (Number(page) - 1) * Number(limit);
-    const take = Number(limit);
+    // Build where clause with status filter
+    const where = buildWhereClause(filters);
 
-    const [ruangans, total] = await Promise.all([
-        prisma.ruangan.findMany({
-            where,
-            ...optimizedRuanganQuery,
-            orderBy: { createdAt: 'desc' },
-            skip,
-            take
-        }),
-        prisma.ruangan.count({ where })
-    ]);
+    if (filters.status !== undefined) {
+        where.status = filters.status;
+    }
 
-    const totalPages = Math.ceil(total / take);
+    // Ambil semua ruangan tanpa pagination
+    const ruangans = await prisma.ruangan.findMany({
+        where,
+        ...optimizedRuanganQuery,
+        orderBy: { createdAt: 'asc' }
+    });
+
+    // Tambahkan QR_Image_url pada setiap ruangan (just /ruangan/filename)
+    const ruangansWithUrls = ruangans.map(r => ({
+        ...r,
+        QR_Image_url: r.QR_Image ? `ruangan/${r.QR_Image}` : null
+    }));
+
     const result = {
+        status: "success",
         message: "Ruangan retrieved successfully",
-        data: ruangans,
-        pagination: {
-            current_page: Number(page),
-            total_pages: totalPages,
-            total_items: total,
-            items_per_page: take,
-            has_next_page: Number(page) < totalPages,
-            has_prev_page: Number(page) > 1
-        },
-        count: ruangans.length,
+        data: ruangansWithUrls,
+        count: ruangansWithUrls.length,
         cached: false
     };
 
-    // Cache the result
-    setCache(ruanganCache, cacheKey, result);
-    
+    // Cache the result (cache original data, not with URLs)
+    setCache(ruanganCache, cacheKey, {
+        ...result,
+        data: ruangans
+    });
+
     // Background prewarm if cache is not full
-    if (ruanganCache.size < 100) {
+    if (ruanganCache.size < CACHE_CONFIG.MAX_CACHE_SIZE) {
         setImmediate(() => prewarmRuanganCaches());
     }
 
@@ -331,25 +343,25 @@ const GetRuanganMaster = asyncHandler(async (req: Request, res: Response) => {
 
 const GetRuanganById = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    
+
     if (!id || isNaN(parseInt(id))) {
         throw new AppError("Valid ruangan ID is required", 400);
     }
 
     const cacheKey = getCacheKey('ruangan:detail', { id: parseInt(id) });
     const cached = getCache(ruanganCache, cacheKey);
-    
+
     if (cached) {
-        return res.status(200).json({ 
-            ...cached, 
-            cached: true, 
+        return res.status(200).json({
+            ...cached,
+            cached: true,
             cache_timestamp: new Date().toISOString(),
             cache_hits: ruanganCache.get(cacheKey)?.hits || 0
         });
     }
 
     const ruangan = await prisma.ruangan.findUnique({
-        where: { 
+        where: {
             id: parseInt(id)
         },
         ...optimizedRuanganQuery
@@ -364,7 +376,7 @@ const GetRuanganById = asyncHandler(async (req: Request, res: Response) => {
         data: ruangan,
         cached: false
     };
-    
+
     // Cache with longer TTL for details
     setCache(ruanganCache, cacheKey, result, CACHE_CONFIG.DETAIL_TTL);
 
@@ -374,7 +386,7 @@ const GetRuanganById = asyncHandler(async (req: Request, res: Response) => {
 const UpdateRuangan = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const { gedung, nama_ruangan, kode_ruangan }: UpdateRuanganRequest = req.body;
-    
+
     if (!id || isNaN(parseInt(id))) {
         throw new AppError("Valid ruangan ID is required", 400);
     }
@@ -392,14 +404,14 @@ const UpdateRuangan = asyncHandler(async (req: Request, res: Response) => {
     // Check kode_ruangan uniqueness if changed
     if (kode_ruangan && kode_ruangan !== existing.kode_ruangan) {
         const conflict = await prisma.ruangan.findFirst({
-            where: { 
+            where: {
                 kode_ruangan: kode_ruangan,
                 deletedAt: null,
                 id: { not: parseInt(id) }
             },
             select: { id: true }
         });
-        
+
         if (conflict) {
             throw new AppError(`Ruangan with code '${kode_ruangan}' already exists`, 409);
         }
@@ -419,12 +431,12 @@ const UpdateRuangan = asyncHandler(async (req: Request, res: Response) => {
 
     // Clear all related caches
     clearAllRuanganCaches();
-    
+
     // Also clear gedung cache if building changed
     if (gedung && gedung !== existing.gedung) {
         clearCachePattern(gedungCache, 'gedung');
     }
-    
+
     // Trigger background cache refresh
     setImmediate(() => prewarmRuanganCaches());
 
@@ -437,7 +449,7 @@ const UpdateRuangan = asyncHandler(async (req: Request, res: Response) => {
 
 const DeleteRuangan = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    
+
     if (!id || isNaN(parseInt(id))) {
         throw new AppError("Valid ruangan ID is required", 400);
     }
@@ -459,7 +471,7 @@ const DeleteRuangan = asyncHandler(async (req: Request, res: Response) => {
     //         deletedAt: null 
     //     }
     // });
-    
+
     // if (activePeminjaman) {
     //     throw new AppError("Cannot delete ruangan that is currently being used", 400);
     // }
@@ -484,7 +496,7 @@ const DeleteRuangan = asyncHandler(async (req: Request, res: Response) => {
 
 const RestoreRuangan = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    
+
     if (!id || isNaN(parseInt(id))) {
         throw new AppError("Valid ruangan ID is required", 400);
     }
@@ -493,14 +505,14 @@ const RestoreRuangan = asyncHandler(async (req: Request, res: Response) => {
         where: { id: parseInt(id), deletedAt: { not: null } },
         select: { id: true }
     });
-    
+
     if (!deleted) {
         throw new AppError("Deleted ruangan not found", 404);
     }
 
     const restored = await prisma.ruangan.update({
         where: { id: parseInt(id) },
-        data: { 
+        data: {
             deletedAt: null,
             updatedAt: new Date()
         },
@@ -509,7 +521,7 @@ const RestoreRuangan = asyncHandler(async (req: Request, res: Response) => {
 
     // Clear all related caches
     clearAllRuanganCaches();
-    
+
     // Trigger background cache refresh
     setImmediate(() => prewarmRuanganCaches());
 
@@ -523,7 +535,7 @@ const RestoreRuangan = asyncHandler(async (req: Request, res: Response) => {
 const GetGedungList = asyncHandler(async (req: Request, res: Response) => {
     const cacheKey = 'gedung:list';
     const cached = getCache(gedungCache, cacheKey);
-    
+
     if (cached) {
         return res.status(200).json({
             message: "Gedung list retrieved successfully",
@@ -553,11 +565,120 @@ const GetGedungList = asyncHandler(async (req: Request, res: Response) => {
         cached: false
     });
 });
+const QRGenerator = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { urlName } = req.body;
+
+    if (!id || isNaN(parseInt(id))) {
+        throw new AppError("Valid ruangan ID is required", 400);
+    }
+
+    const ruangan = await prisma.ruangan.findUnique({
+        where: { id: parseInt(id) },
+        select: { id: true, nama_ruangan: true, kode_ruangan: true }
+    });
+
+    if (!ruangan) {
+        throw new AppError("Ruangan not found", 404);
+    }
+
+    if (!urlName) {
+        return res.status(400).json({
+            message: "Please provide 'urlName' in the request body. Example: '/ruangan/aktivasi/{id}' for frontend activation."
+        });
+    }
+
+    // Generate QR code as base64 PNG
+    const qrUrl = `${urlName.replace('{id}', ruangan.id.toString())}`;
+    const qrCodeDataUrl = await QRCode.toDataURL(qrUrl);
+
+    // Convert base64 to buffer
+    const base64Data = qrCodeDataUrl.replace(/^data:image\/png;base64,/, "");
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    // Generate filename
+    const filename = FileHandler.generateFilename(`qr_ruangan_${ruangan.id}.png`, 'qr');
+
+    // Get storage path
+    const uploadDir = FileHandler.getUploadDir(UploadCategory.RUANGAN);
+    const filePath = path.join(uploadDir, filename);
+
+    // Save file
+    fs.writeFileSync(filePath, buffer);
+
+    // Simpan path/filename ke database
+    await prisma.ruangan.update({
+        where: { id: ruangan.id },
+        data: { QR_Image: filename }
+    });
+
+    // Dapatkan URL file untuk frontend
+    const fileUrl = FileHandler.getFileUrl(UploadCategory.RUANGAN, filename);
+
+    // Clear all related caches and prewarm again
+    clearAllRuanganCaches();
+    setImmediate(() => prewarmRuanganCaches());
+
+    return res.status(200).json({
+        message: "QR code generated and saved successfully",
+        data: {
+            ruangan,
+            qr_url: qrUrl,
+            qr_image_filename: filename,
+            qr_image_url: fileUrl
+        }
+    });
+});
+
+const deleteImageQR = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id || isNaN(parseInt(id))) {
+        throw new AppError("Valid ruangan ID is required", 400);
+    }
+    try {
+        const ruangan = await prisma.ruangan.findUnique({
+            where: { id: parseInt(id) },
+            select: { id: true, QR_Image: true }
+        });
+        if (!ruangan) {
+            throw new AppError("Ruangan not found", 404);
+        }
+        if (!ruangan.QR_Image) {
+            throw new AppError("QR image not found", 404);
+        }
+
+        // Delete the QR image file
+        const uploadDir = FileHandler.getUploadDir(UploadCategory.RUANGAN);
+        const filePath = path.join(uploadDir, ruangan.QR_Image);
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+
+        // Update database to remove QR_Image reference
+        await prisma.ruangan.update({
+            where: { id: ruangan.id },
+            data: { QR_Image: null }
+        });
+
+        // Clear all related caches and prewarm again
+        clearAllRuanganCaches();
+        setImmediate(() => prewarmRuanganCaches());
+
+        return res.status(200).json({
+            message: "QR image deleted successfully",
+            data: { id: ruangan.id }
+        });
+    } catch (error) {
+        throw new AppError("Failed to delete QR image", 500);
+    }
+
+});
+
 
 const GetRuanganStats = asyncHandler(async (req: Request, res: Response) => {
     const cacheKey = 'stats:ruangan';
     const cached = getCache(ruanganStatsCache, cacheKey);
-    
+
     if (cached) {
         return res.status(200).json({
             message: "Ruangan statistics retrieved successfully",
@@ -586,7 +707,7 @@ const GetRuanganStats = asyncHandler(async (req: Request, res: Response) => {
             take: 5
         }),
         prisma.ruangan.findMany({
-            where: { 
+            where: {
                 deletedAt: null,
                 updatedAt: { not: undefined }
             },
@@ -662,16 +783,16 @@ const GetRuanganCacheStats = asyncHandler(async (req: Request, res: Response) =>
 
 const WarmRuanganCache = asyncHandler(async (req: Request, res: Response) => {
     const start = Date.now();
-    
+
     // Clear existing caches first
     ruanganCache.clear();
     gedungCache.clear();
     ruanganStatsCache.clear();
-    
+
     await prewarmRuanganCaches();
-    
+
     const duration = Date.now() - start;
-    
+
     return res.status(200).json({
         message: "Ruangan cache warmed successfully",
         data: {
@@ -695,9 +816,13 @@ const RuanganController = {
     DeleteRuangan,
     RestoreRuangan,
     GetGedungList,
+    
     GetRuanganStats,
     GetRuanganCacheStats,
-    WarmRuanganCache
+    WarmRuanganCache,
+
+    QRGenerator,
+    deleteImageQR
 }
 
 export default RuanganController;
