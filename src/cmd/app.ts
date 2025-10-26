@@ -11,6 +11,7 @@ import cookieParser from "cookie-parser";
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
+app.use(cors(corsOptions))
 
 app.use('/storage', express.static(path.join(process.cwd(), 'src', 'code', 'storage')));
 
@@ -39,7 +40,6 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Index routes
-app.use(cors(corsOptions))
 app.use('/api', router);
 app.get('/', (req, res) => {
     res.send('Welcome to the API');
