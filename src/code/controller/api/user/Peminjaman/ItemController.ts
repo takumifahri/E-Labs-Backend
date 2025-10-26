@@ -323,7 +323,7 @@ const AjuanPeminjamanItems = asyncHandler(async (req: Request, res: Response, ne
                 status: PeminjamanHeaderStatus.PENDING,
                 user_id: userId,
                 barang_id: barangValidations[0].item.barang_id,
-                Dokumen: DokumenUrl
+                dokumen: DokumenUrl
             }
         });
 
@@ -397,7 +397,7 @@ const AjuanPeminjamanItems = asyncHandler(async (req: Request, res: Response, ne
                 tanggal_kembali: result.header.tanggal_kembali,
                 status: result.header.status,
                 kegiatan: result.header.kegiatan,
-                Dokumen: result.header.Dokumen
+                Dokumen: result.header.dokumen
             },
             items: result.items.map(item => ({
                 id: item.id,

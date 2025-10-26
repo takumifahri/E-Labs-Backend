@@ -541,7 +541,11 @@ const getAllBarang = asyncHandler(async (req: Request, res: Response, next: Next
     const { page = 1, limit = 10, kategori_id, status, kondisi, search } = req.query;
     const filters = { page: Number(page), limit: Number(limit), kategori_id, status, kondisi, search };
     const cacheKey = getCacheKey('barang:list', filters);
-
+    // Kita exception yang udah di delete
+    const deletedItems = await prisma.barang.findMany({
+        where: { deletedAt: { not: null } },
+        select: { id: true }
+    });
     // Try cache first
     const cached = getCache(barangCache, cacheKey);
     if (cached) {
@@ -569,6 +573,7 @@ const getAllBarang = asyncHandler(async (req: Request, res: Response, next: Next
     const where = buildWhereClause({ kategori_id, status, kondisi, search });
 
     // Parallel queries for better performance
+    
     const [barangs, total] = await Promise.all([
         prisma.barang.findMany({
             where,
@@ -690,14 +695,14 @@ const deleteBarang = asyncHandler(async (req: Request, res: Response, next: Next
     const activePeminjaman = await prisma.peminjaman_Item.findFirst({
         where: { 
             barang_id: Number(id), 
-            status: { in: [StatusBarang.DIPINJAM, 'Pending'] }, 
+            status: { in: [StatusBarang.DIPINJAM] }, 
             deletedAt: null 
         },
         select: { id: true }
     });
     
     if (activePeminjaman) {
-        throw new AppError("Cannot delete barang that is currently borrowed or pending", 400);
+        throw new AppError("Cannot delete barang that is currently borrowed", 400);
     }
 
     // Delete associated image file if exists
@@ -727,6 +732,8 @@ const deleteBarang = asyncHandler(async (req: Request, res: Response, next: Next
     // Clear all related caches
     clearAllRelatedCaches();
 
+    // kita cache ulang dg data yang baru
+    setImmediate(() => prewarmCaches());
     res.status(200).json({ 
         message: "Barang deleted successfully", 
         data: deleted,
@@ -735,6 +742,7 @@ const deleteBarang = asyncHandler(async (req: Request, res: Response, next: Next
         image_filename: existing.foto_barang
     });
 });
+
 const restoreBarang = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     
