@@ -19,8 +19,10 @@ PeminjamanRouter.post("/barang/ajuan-tidak-terjadwal", PeminajmanItemTidakTerJad
 
 // Peminjaman ruangan
 // Peminjaman ruangan tidak perlu login
-PeminjamanRouter.post("/ruangan/terjadwal", PeminjamanRuanganController.PeminjamanRuanganTerjadwal);
-
+PeminjamanRouter.post("/ruangan/terjadwal", PeminjamanRuanganController.PengajuanPeminjamanRuanganTerjadwal);
+PeminjamanRouter.patch("/ruangan/terjadwal/lengkapi/:id", PeminjamanUpload,  PeminjamanRuanganController.lengkapiPengajuanPeminjamanRuanganTerjadwal);
+// list pengajuan untuk transparansi
+PeminjamanRouter.get("/ruangan/terjadwal/list", PeminjamanRuanganController.getListPengajuanRuanganTerjadwal);
 
 // Available ruangan
 PeminjamanRouter.get("/ruangan/list", PeminjamanRuanganController.getAllRuangan);

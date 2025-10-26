@@ -1,6 +1,6 @@
 import { asyncHandler, AppError } from "../../../../../middleware/error";
 import { Request, Response, NextFunction } from "express";
-import { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient, StatusRuangan } from "@prisma/client";
 import { ListPengajuanPeminjamanRuanganResponse } from "../../../../../models/Ruangan";
 import { PeminjamanRuanganStatus } from "../../../../../models/Ruangan";
 import { VerifikasiPeminjamanRequest } from "../../../../../models/verifikasi-peminjaman";
@@ -44,12 +44,12 @@ const getAllPeminjamanRuangan = asyncHandler(async (req: Request, res: Response,
             id: pr.id,
             ruangan_id: pr.ruangan_id,
             user_id: pr.user_id,
-            jam_mulai: pr.jam_mulai,
-            jam_selesai: pr.jam_selesai,
+            jam_mulai: pr.jam_mulai ?? new Date(0),
+            jam_selesai: pr.jam_selesai ?? new Date(0),
             status: pr.status as unknown as PeminjamanRuanganStatus,
-            kegiatan: pr.kegiatan,
-            tanggal: pr.tanggal,
-            dokumen: pr.dokumen,
+            kegiatan: pr.kegiatan ?? "",
+            tanggal: pr.tanggal ?? new Date(0),
+            dokumen: pr.dokumen ?? "",
             createdAt: pr.createdAt,
             updatedAt: pr.updatedAt,
             responded_by: pr.accepted_by_id,
@@ -137,11 +137,11 @@ const getDetailPeminjamanRuangan = asyncHandler(async (req: Request, res: Respon
             id: pr.id,
             ruangan_id: pr.ruangan_id,
             user_id: pr.user_id,
-            jam_mulai: pr.jam_mulai,
-            jam_selesai: pr.jam_selesai,
+            jam_mulai: pr.jam_mulai ?? new Date(0),
+            jam_selesai: pr.jam_selesai ?? new Date(0),
             status: pr.status as unknown as PeminjamanRuanganStatus,
-            kegiatan: pr.kegiatan,
-            tanggal: pr.tanggal,
+            kegiatan: pr.kegiatan ?? 'Kuliah',
+            tanggal: pr.tanggal ?? new Date(0),
             dokumen: pr.dokumen,
             createdAt: pr.createdAt,
             updatedAt: pr.updatedAt,
@@ -218,6 +218,15 @@ const verifikasiAjuanPeminjamanRuangan = asyncHandler(async (req: Request, res: 
                 status: status,
                 accepted_by_id: getUser.id,
                 updatedAt: new Date()
+            }
+        });
+
+        await prisma.ruangan.update({
+            where: {
+                id: peminjamanRuangan.ruangan_id
+            },
+            data: {
+                status: StatusRuangan.DIPAKAI
             }
         });
         // Ambil data ruangan dan user pengaju untuk log
