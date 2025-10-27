@@ -162,6 +162,7 @@ model Barang {
   peminjaman_handsets Peminjaman_Handset[]
   peminjaman_items    Peminjaman_Item[]
 }
+
 model Ruangan {
   id                  Int                  @id @default(autoincrement())
   gedung              String
