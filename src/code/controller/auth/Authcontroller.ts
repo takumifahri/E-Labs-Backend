@@ -5,7 +5,7 @@ import { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse } from '
 import { HashPassword, verifyPassword, generateJWTToken, verifyJWTToken } from '../../utils/hash';
 import { addToBlacklist } from '../../utils/jwt';
 import { AppError, asyncHandler } from '../../middleware/error';
-
+import { logActivity } from '../api/user/LogController';
 const prisma = new PrismaClient();
 
 const Register = asyncHandler(async (req: express.Request, res: express.Response) => {
@@ -22,7 +22,7 @@ const Register = asyncHandler(async (req: express.Request, res: express.Response
     else if (roleId === 2) prefix = 'DSN'; // Dosen
     else if (roleId === 3) prefix = 'TKS'; // Teknisi
     else if (roleId === 4) prefix = 'ADM'; // Superadmin
-    
+
     const uniqueId = `${prefix}-${uuidv4()}`;
     const hashPassword = await HashPassword(password);
 
@@ -56,16 +56,20 @@ const Register = asyncHandler(async (req: express.Request, res: express.Response
         roles: registUser.role.nama_role,
         NIM: registUser.NIM ?? undefined,
         NIP: registUser.NIP ?? undefined,
-        semester: registUser.semester ?? undefined,
+        semester: typeof registUser.semester === 'number' ? registUser.semester : undefined,
         createdAt: registUser.createdAt
     };
-
+    // await logActivity({
+    //     user_id: registUser.id,
+    //     pesan: `Registrasi akun baru (${registUser.email})`,
+    //     aksi: 'REGISTER',
+    //     tabel_terkait: 'User'
+    // });
     return res.status(201).json({
         message: "User registered successfully",
         data: responseRegist
     });
 });
-
 const Login = asyncHandler(async (req: express.Request, res: express.Response) => {
     const { email, password }: LoginRequest = req.body;
 
@@ -73,7 +77,7 @@ const Login = asyncHandler(async (req: express.Request, res: express.Response) =
     if (!email || !password) {
         throw new AppError("Email and password are required", 400);
     }
-    
+
     const ValidatingUser = await prisma.user.findUnique({
         where: { email },
         include: { role: true }
@@ -93,6 +97,15 @@ const Login = asyncHandler(async (req: express.Request, res: express.Response) =
         throw new AppError("Account has been deactivated", 403);
     }
 
+    // --- Tambahan: Revoke JWT lama jika ada ---
+    // Cek apakah ada token lama di cookie
+    const oldToken = req.cookies?.token;
+    if (oldToken) {
+        // Blacklist token lama
+        addToBlacklist(oldToken);
+    }
+    // ------------------------------------------
+
     // Set isActive to true on login
     await prisma.user.update({
         where: { email },
@@ -100,7 +113,9 @@ const Login = asyncHandler(async (req: express.Request, res: express.Response) =
     });
 
     const token = await generateJWTToken({
+        id: ValidatingUser.id,
         uniqueId: ValidatingUser.uniqueId,
+        nama: ValidatingUser.nama,
         email: ValidatingUser.email,
         roleId: ValidatingUser.roleId,
         nama_role: ValidatingUser.role.nama_role
@@ -112,12 +127,26 @@ const Login = asyncHandler(async (req: express.Request, res: express.Response) =
         nama: ValidatingUser.nama,
         roles: ValidatingUser.role.nama_role,
         NIM: ValidatingUser.NIM ?? undefined,
-        semester: ValidatingUser.semester ?? undefined,
+        semester: typeof ValidatingUser.semester === 'number' ? ValidatingUser.semester : undefined,
         token: token,
         createdAt: ValidatingUser.createdAt,
         isActive: true
     };
 
+    // res.cookie('token', token, {
+    //     httpOnly: true,
+    //     secure: process.env.NODE_ENV === 'production' ? false : false,
+    //     sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+    //     domain: process.env.COOKIE_DOMAIN || '202.10.36.217', // ganti dengan IP/domain sesuai akses client
+    //     maxAge: 6 * 60 * 60 * 1000
+    // });
+    res.cookie('token', token, {
+        httpOnly: true,
+        secure: false, // development: false, production: true (HTTPS)
+        sameSite: 'lax', // development: 'lax', production: 'strict'
+        // domain: jangan di-set jika development, biarkan default
+        maxAge: 6 * 60 * 60 * 1000
+    });
     return res.status(200).json({
         message: "Login successful",
         data: loginResponse
@@ -129,7 +158,7 @@ const Logout = asyncHandler(async (req: express.Request, res: express.Response) 
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1];
-        
+
         try {
             const decodedToken = await verifyJWTToken(token) as { uniqueId: string; email: string; roleId: number; nama_role: string };
             if (!decodedToken || !decodedToken.uniqueId) {
@@ -145,7 +174,11 @@ const Logout = asyncHandler(async (req: express.Request, res: express.Response) 
             throw new AppError("Invalid token", 401);
         }
     }
-
+    res.clearCookie('token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict'
+    });
     return res.status(200).json({ message: "Logout successful" });
 });
 

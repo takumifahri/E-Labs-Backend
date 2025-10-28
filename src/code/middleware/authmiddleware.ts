@@ -2,18 +2,22 @@ import { Request, Response, NextFunction } from "express";
 import { verifyJWTToken } from "../utils/hash";
 import { isBlacklisted } from "../utils/jwt";
 
+// Middleware untuk membaca token dari HTTP Only cookie atau Authorization header
 async function authMiddleware(req: Request, res: Response, next: NextFunction) {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Cek token di cookie dulu, jika tidak ada baru cek di header
+    const token = req.cookies?.token || (
+        req.headers.authorization && req.headers.authorization.startsWith('Bearer ')
+            ? req.headers.authorization.split(' ')[1]
+            : null
+    );
+
+    if (!token) {
         return res.status(401).json({ 
             success: false,
             message: 'No token provided',
-            debug: 'authMiddleware: Missing or invalid Authorization header'
+            debug: 'authMiddleware: Missing token in cookie and header'
         });
     }
-    
-    const token = authHeader.split(' ')[1];
 
     if (isBlacklisted(token)) {
         return res.status(401).json({ 
@@ -35,17 +39,6 @@ async function authMiddleware(req: Request, res: Response, next: NextFunction) {
         
         // Set user data from JWT payload
         req.user = decoded;
-        
-        // Debug log
-        // if (process.env.NODE_ENV === 'development') {
-        //     console.log('🔐 authMiddleware: User authenticated:', {
-        //         uniqueId: decoded.uniqueId,
-        //         email: decoded.email,
-        //         nama_role: decoded.nama_role,
-        //         roleId: decoded.roleId
-        //     });
-        // }
-        
         next();
     } catch (error) {
         console.error('❌ Auth middleware error:', error);
@@ -67,6 +60,7 @@ function Checkroles(requiredRoles: string[]) {
                 user_role: user?.nama_role,
                 required_roles: requiredRoles,
                 user_data: user ? {
+                    id: user.id,
                     uniqueId: user.uniqueId,
                     email: user.email,
                     roleId: user.roleId

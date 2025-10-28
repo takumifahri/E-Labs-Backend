@@ -81,7 +81,7 @@ async function main() {
       roleId: 1,
       prodiId: 1,
       NIM: "J0403231001",
-      semester: "5",
+      semester: 5,
     },
     {
       uniqueId: "MHS-002",
@@ -91,7 +91,7 @@ async function main() {
       roleId: 1,
       prodiId: 2,
       NIM: "K0403231002",
-      semester: "3",
+      semester: 3,
     },
     {
       uniqueId: "MHS-003",
@@ -101,7 +101,7 @@ async function main() {
       roleId: 1,
       prodiId: 3,
       NIM: "L0403231003",
-      semester: "7",
+      semester: 7,
     },
     {
       uniqueId: "MHS-004",
@@ -111,7 +111,7 @@ async function main() {
       roleId: 1,
       prodiId: 4,
       NIM: "M0403231004",
-      semester: "2",
+      semester: 2,
     },
     {
       uniqueId: "MHS-005",
@@ -121,7 +121,7 @@ async function main() {
       roleId: 1,
       prodiId: 5,
       NIM: "N0403231005",
-      semester: "6",
+      semester: 6,
     },
     {
       uniqueId: "MHS-006",
@@ -131,7 +131,7 @@ async function main() {
       roleId: 1,
       prodiId: 6,
       NIM: "O0403231006",
-      semester: "4",
+      semester: 4,
     },
     {
       uniqueId: "MHS-007",
@@ -141,7 +141,7 @@ async function main() {
       roleId: 1,
       prodiId: 7,
       NIM: "P0403231007",
-      semester: "1",
+      semester: 1,
     },
     {
       uniqueId: "MHS-008",
@@ -151,7 +151,7 @@ async function main() {
       roleId: 1,
       prodiId: 8,
       NIM: "Q0403231008",
-      semester: "8",
+      semester: 8,
     },
     {
       uniqueId: "MHS-009",
@@ -161,7 +161,7 @@ async function main() {
       roleId: 1,
       prodiId: 9,
       NIM: "R0403231009",
-      semester: "5",
+      semester: 5,
     },
     {
       uniqueId: "MHS-010",
@@ -171,7 +171,7 @@ async function main() {
       roleId: 1,
       prodiId: 10,
       NIM: "S0403231010",
-      semester: "3",
+      semester: 3,
     },
     {
       uniqueId: "MHS-011",
@@ -181,7 +181,7 @@ async function main() {
       roleId: 1,
       prodiId: 11,
       NIM: "T0403231011",
-      semester: "2",
+      semester: 2,
     },
     {
       uniqueId: "MHS-012",
@@ -191,7 +191,7 @@ async function main() {
       roleId: 1,
       prodiId: 12,
       NIM: "U0403231012",
-      semester: "6",
+      semester: 6,
     },
     {
       uniqueId: "MHS-013",
@@ -201,7 +201,7 @@ async function main() {
       roleId: 1,
       prodiId: 13,
       NIM: "V0403231013",
-      semester: "4",
+      semester: 4,
     },
     {
       uniqueId: "MHS-014",
@@ -211,7 +211,7 @@ async function main() {
       roleId: 1,
       prodiId: 14,
       NIM: "W0403231014",
-      semester: "7",
+      semester: 7,
     },
     {
       uniqueId: "MHS-015",
@@ -221,7 +221,7 @@ async function main() {
       roleId: 1,
       prodiId: 15,
       NIM: "X0403231015",
-      semester: "1",
+      semester: 1,
     },
 
     // 3 Dosen (roleId: 2) - have NIP
