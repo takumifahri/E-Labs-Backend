@@ -6,6 +6,7 @@ import { PeminjamanRuanganStatus } from "../../../../../models/Ruangan";
 import { VerifikasiPeminjamanRequest } from "../../../../../models/verifikasi-peminjaman";
 import { logActivity } from "../../../user/LogController";
 import { get } from "http";
+import { transporter } from "../../../../../utils/Mail.config";
 const prisma = new PrismaClient({
     datasources: {
         db: {
@@ -183,14 +184,12 @@ const verifikasiAjuanPeminjamanRuangan = asyncHandler(async (req: Request, res: 
     if (!getUser) {
         throw new AppError('User not authorized', 401);
     }
-    console.log("User details:", getUser);
     // Params
     const peminjamanRuanganId = parseInt(req.params.id);
     if (isNaN(peminjamanRuanganId)) {
         throw new AppError('Invalid peminjaman ruangan ID', 400);
     }
 
-    // Verifikasi Logic
     try {
         const { status }: { status: PeminjamanRuanganStatus } = req.body;
 
@@ -229,7 +228,8 @@ const verifikasiAjuanPeminjamanRuangan = asyncHandler(async (req: Request, res: 
                 status: StatusRuangan.DIPAKAI
             }
         });
-        // Ambil data ruangan dan user pengaju untuk log
+
+        // Ambil data ruangan dan user pengaju untuk log dan email
         const ruangan = await prisma.ruangan.findUnique({
             where: { id: peminjamanRuangan.ruangan_id }
         });
@@ -244,13 +244,50 @@ const verifikasiAjuanPeminjamanRuangan = asyncHandler(async (req: Request, res: 
 
         await logActivity({
             user_id: getUser.id,
-            pesan: `Pengajuan ruangan ${kodeRuangan} yang diajukan ${pengajuNIM} - ${pengajuNama} disetujui oleh ${verifikatorNama}`,
+            pesan: `Pengajuan ruangan ${kodeRuangan} yang diajukan ${pengajuNIM} - ${pengajuNama} diverifikasi oleh ${verifikatorNama} dengan status ${status}`,
             aksi: 'PENGAJUAN RUANGAN',
             tabel_terkait: 'Peminjaman_Ruangan'
         });
+
+        // Kirim email ke user pengaju
+        if (pengaju?.email) {
+            let subject = '';
+            let message = '';
+            if (status === PeminjamanRuanganStatus.DISETUJUI) {
+                subject = "Pengajuan Peminjaman Ruangan Disetujui";
+                message = `Selamat ${pengajuNama}, pengajuan peminjaman ruangan ${kodeRuangan} pada tanggal ${peminjamanRuangan.tanggal?.toLocaleDateString()} telah <b>DISETUJUI</b> oleh ${verifikatorNama}. Silakan gunakan ruangan sesuai jadwal yang telah ditentukan.`;
+            } else if (status === PeminjamanRuanganStatus.DITOLAK) {
+                subject = "Pengajuan Peminjaman Ruangan Ditolak";
+                message = `Mohon maaf ${pengajuNama}, pengajuan peminjaman ruangan ${kodeRuangan} pada tanggal ${peminjamanRuangan.tanggal?.toLocaleDateString()} telah <b>DITOLAK</b> oleh ${verifikatorNama}. Silakan hubungi admin untuk informasi lebih lanjut.`;
+            } else {
+                subject = "Status Pengajuan Peminjaman Ruangan";
+                message = `Pengajuan peminjaman ruangan ${kodeRuangan} telah diverifikasi dengan status: ${status}.`;
+            }
+
+            await transporter.sendMail({
+                from: process.env.SMTP_FROM || '"Admin E-Labs Cervosys" <kagawahizashi@gmail.com>',
+                to: pengaju.email,
+                subject,
+                html: `
+                    <div style="font-family: Arial, sans-serif; background: #f9f9f9; padding: 24px;">
+                        <div style="background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #eee; padding: 24px;">
+                            <h2 style="color: #1976d2;">Status Pengajuan Peminjaman Ruangan</h2>
+                            <p style="font-size: 16px; color: #333;">
+                                ${message}
+                            </p>
+                            <hr style="margin: 32px 0;">
+                            <p style="font-size: 13px; color: #888;">
+                                Jika ada pertanyaan, silakan hubungi admin melalui <a href="mailto:support@yourdomain.com">support@yourdomain.com</a>.
+                            </p>
+                        </div>
+                    </div>
+                `
+            });
+        }
+
         res.status(200).json({
             status: 'success',
-            message: 'Peminjaman ruangan verified successfully',
+            message: 'Peminjaman ruangan verified successfully and email sent',
             data: updatedPeminjamanRuangan
         });
 
