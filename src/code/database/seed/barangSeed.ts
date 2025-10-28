@@ -132,7 +132,7 @@ async function main() {
     {
       kategori: "Elektronik",
       kode_barang: "PC001",
-      nama_barang: "barang_ergonomis_1761302741623_190635702.webp",
+      nama_barang: "PC Asus VivoPC",
       merek: "Asus",
       jumlah: 4,
       kondisi: "BAIK",

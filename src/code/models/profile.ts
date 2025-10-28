@@ -2,7 +2,7 @@ export interface ProfileDto {
     id: number;
     uniqueId: string;
     roleId: number;
-    semester?: string;
+    semester?: number;
     profil?: string;
     email: string;
     nama: string;
@@ -21,7 +21,7 @@ export interface ProfileDto {
 
 export interface CreateProfileDto {
     roleId?: number;
-    semester?: string;
+    semester?: number;
     profil?: string;
     email: string;
     nama: string;
@@ -31,7 +31,7 @@ export interface CreateProfileDto {
 }
 
 export interface UpdateProfileDto {
-    semester?: string;
+    semester?: number;
     profil?: string;
     email?: string;
     nama?: string;

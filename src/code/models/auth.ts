@@ -13,7 +13,7 @@ export interface RegisterResponse {
     uniqueId: string;
     email: string;
     nama: string;
-    semester?: string;
+    semester?: number;
     address?: string;
     NIP?: string;
     NIM?: string;
@@ -31,7 +31,7 @@ export interface LoginResponse {
     email: string;
     nama: string;
     roles: Role[keyof Role];
-    semester?: string;
+    semester?: number;
     address?: string;
     NIM?: string;
     isActive: boolean;
