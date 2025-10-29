@@ -54,6 +54,7 @@ enum StatusPeminjamanHandset {
 }
 
 enum StatusPeminjamanRuangan {
+  PENDING
   DIAJUKAN
   DISETUJUI
   DITOLAK
@@ -161,6 +162,7 @@ model Barang {
   peminjaman_handsets Peminjaman_Handset[]
   peminjaman_items    Peminjaman_Item[]
 }
+
 model Ruangan {
   id                  Int                  @id @default(autoincrement())
   gedung              String
@@ -182,6 +184,7 @@ model Master_Matkul {
   id                 Int                  @id @default(autoincrement())
   prodi_id           Int
   matkul             String
+  semester           Int?                 @default(1)
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   deletedAt          DateTime?
@@ -255,11 +258,11 @@ model Peminjaman_Ruangan {
   ruangan_id            Int
   user_id               Int
   matkul_id             Int?
-  tanggal               DateTime
-  jam_mulai             DateTime
-  jam_selesai           DateTime
+  tanggal               DateTime?
+  jam_mulai             DateTime?
+  jam_selesai           DateTime?
   status                StatusPeminjamanRuangan
-  kegiatan              String
+  kegiatan              String?
   dokumen               String?
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @updatedAt
