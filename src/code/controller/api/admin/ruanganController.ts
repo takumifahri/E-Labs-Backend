@@ -23,11 +23,11 @@ const ruanganStatsCache = new Map<string, any>();
 
 // Cache configuration
 const CACHE_CONFIG = {
-    DEFAULT_TTL: 10 * 60 * 1000,       // 10 minutes (ruangan data changes less frequently)
-    DETAIL_TTL: 15 * 60 * 1000,        // 15 minutes for details
-    GEDUNG_TTL: 30 * 60 * 1000,        // 30 minutes for building list
-    STATS_TTL: 5 * 60 * 1000,          // 5 minutes for stats
-    MAX_CACHE_SIZE: 500                // Smaller cache for ruangan
+    DEFAULT_TTL: Math.floor(Math.random() * 5000) + 10000,   // 10-15 seconds
+    DETAIL_TTL: Math.floor(Math.random() * 5000) + 10000,    // 10-15 seconds for details
+    GEDUNG_TTL: Math.floor(Math.random() * 5000) + 10000,    // 10-15 seconds for building list
+    STATS_TTL: Math.floor(Math.random() * 5000) + 10000,     // 10-15 seconds for stats
+    MAX_CACHE_SIZE: 500                                      // Smaller cache for ruangan
 };
 
 // Cache helpers

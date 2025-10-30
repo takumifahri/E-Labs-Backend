@@ -2,8 +2,36 @@ import { Request, Response, NextFunction } from "express";
 import { PrismaClient } from "@prisma/client";
 import { asyncHandler } from "../../../middleware/error";
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+    datasources: {
+        db: {
+            url: process.env.LOCAL_DATABASE_URL
+        }
+    },
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
+});
 
+
+const peminjamanCache = new Map<string, { data: any, expiry: number }>();
+const CACHE_TTL = Math.floor(Math.random() * 6 + 10) * 1000; // 10-15 detik
+
+function setCache(key: string, data: any, ttl: number = CACHE_TTL) {
+    peminjamanCache.set(key, { data, expiry: Date.now() + ttl });
+}
+
+function getCache(key: string) {
+    const cached = peminjamanCache.get(key);
+    if (!cached) return undefined;
+    if (Date.now() > cached.expiry) {
+        peminjamanCache.delete(key);
+        return undefined;
+    }
+    return cached.data;
+}
+
+function clearPeminjamanCache() {
+    peminjamanCache.clear();
+}
 export async function logActivity({
     user_id,
     pesan,
@@ -56,7 +84,12 @@ export const createLog = asyncHandler(async (req: Request, res: Response) => {
 // Get all logs (bisa filter by user_id, aksi, tabel_terkait)
 export const getLogs = asyncHandler(async (req: Request, res: Response) => {
     const { user_id, aksi, tabel_terkait } = req.query;
-
+    // Buat cache key unik berdasarkan query
+    const cacheKey = "peminjaman_list:" + JSON.stringify(req.query);
+    const cached = getCache(cacheKey);
+    if (cached) {
+        return res.status(200).json(cached);
+    }
     const where: any = {};
     if (user_id) where.user_id = Number(user_id);
     if (aksi) where.aksi = aksi;
@@ -69,9 +102,11 @@ export const getLogs = asyncHandler(async (req: Request, res: Response) => {
             user: { select: { id: true, nama: true, email: true } }
         }
     });
-
-    res.status(200).json({
-        success: true,
+    const response = {
+        status: 'success',
+        message: 'List of peminjaman ruangan retrieved successfully',
         data: logs
-    });
+    };
+    setCache(cacheKey, response);
+    res.status(200).json(response);
 });

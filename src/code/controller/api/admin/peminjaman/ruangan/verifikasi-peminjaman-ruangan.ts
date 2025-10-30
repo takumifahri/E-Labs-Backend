@@ -15,14 +15,38 @@ const prisma = new PrismaClient({
     },
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
 });
+const peminjamanCache = new Map<string, { data: any, expiry: number }>();
+const CACHE_TTL = Math.floor(Math.random() * 6 + 10) * 1000; // 10-15 detik
 
+function setCache(key: string, data: any, ttl: number = CACHE_TTL) {
+    peminjamanCache.set(key, { data, expiry: Date.now() + ttl });
+}
+
+function getCache(key: string) {
+    const cached = peminjamanCache.get(key);
+    if (!cached) return undefined;
+    if (Date.now() > cached.expiry) {
+        peminjamanCache.delete(key);
+        return undefined;
+    }
+    return cached.data;
+}
+
+function clearPeminjamanCache() {
+    peminjamanCache.clear();
+}
 const getAllPeminjamanRuangan = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     // Kita cek apakah user authorized
     const getUser = req.user;
     if (!getUser) {
         throw new AppError('User not authorized', 401);
     }
-
+    // Buat cache key unik berdasarkan query
+    const cacheKey = "peminjaman_list:" + JSON.stringify(req.query);
+    const cached = getCache(cacheKey);
+    if (cached) {
+        return res.status(200).json(cached);
+    }
     const { id, ruangan_id, user_id, jam_mulai, jam_selesai, status, kegiatan, tanggal, dokumen, createdAt, updatedAt, responded_by, responden } = req.query;
     try {
         const peminjamanRuanganListWithRole = await prisma.peminjaman_Ruangan.findMany({
@@ -94,12 +118,17 @@ const getAllPeminjamanRuangan = asyncHandler(async (req: Request, res: Response,
                 return true;
             });
         }
-
+        setCache(cacheKey, {
+            status: 'success',
+            message: 'List of peminjaman ruangan retrieved successfully',
+            data: filteredResult
+        });
         res.status(200).json({
             status: 'success',
             message: 'List of peminjaman ruangan retrieved successfully',
             data: filteredResult
         });
+        
     } catch (error) {
         throw new AppError(`Failed to retrieve peminjaman ruangan, error: ${error}`, 500);
     } finally {

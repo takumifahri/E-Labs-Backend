@@ -13,6 +13,27 @@ const prisma = new PrismaClient({
   }
 })
 
+const pengajuanCache = new Map<string, { data: any, expiry: number }>();
+const CACHE_TTL = Math.floor(Math.random() * 6 + 10) * 1000; // 10-15 detik
+
+function setPengajuanCache(key: string, data: any, ttl: number = CACHE_TTL) {
+  pengajuanCache.set(key, { data, expiry: Date.now() + ttl });
+}
+
+function getPengajuanCache(key: string) {
+  const cached = pengajuanCache.get(key);
+  if (!cached) return undefined;
+  if (Date.now() > cached.expiry) {
+    pengajuanCache.delete(key);
+    return undefined;
+  }
+  return cached.data;
+}
+
+function clearPengajuanCache() {
+  pengajuanCache.clear();
+}
+
 // Get all ruangan (DTO sesuai interface Ruangan) secara ascending berdasarkan id
 const getAllRuangan = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -75,113 +96,6 @@ const getDetailRuangan = asyncHandler(async (req: Request, res: Response, next: 
     next(error);
   }
 });
-
-// Terjadwal, Dia ga perlu login
-// const PeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-//   const { gedung, nim, ruangan_id, waktu_mulai, waktu_selesai, kegiatan }: PengajuanRuanganaTerjadwalRequest = req.body;
-
-//   // cari gedung lalu nanti di sort untuk ruangannya
-//   const gedungDatas = await prisma.ruangan.findFirst({
-//     where: {
-//       gedung: gedung
-//     }
-//   });
-//   if (!gedungDatas) {
-//     return res.status(404).json({
-//       success: false,
-//       message: "Gedung tidak ditemukan"
-//     });
-//   }
-//   // Kita get User_id bberdasarkan NIM
-//   let user_id: number | undefined = undefined;
-//   try {
-//     if (nim) {
-//       const user = await prisma.user.findFirst({
-//         where: {
-//           NIM: nim
-//         }
-//       });
-//       if (user) {
-//         user_id = user.id;
-//       }
-//     }
-//   } catch (error) {
-//     next(error);
-//   }
-//   if (typeof user_id !== "number") {
-//     return res.status(400).json({
-//       success: false,
-//       message: "User tidak ditemukan"
-//     });
-//   }
-
-//   // Declare kodeRuanganForLog with a default value
-//   let kodeRuanganForLog: string | undefined = undefined;
-
-//   // Cek apakah ada ruangan id
-//   try {
-//     const ruangan = await prisma.ruangan.findUnique({
-//       where: {
-//         id: ruangan_id,
-//         gedung: gedungDatas.gedung
-//       }
-//     });
-//     if (!ruangan) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Ruangan tidak ditemukan"
-//       });
-//     }
-//     // Save kode_ruangan for logging
-//     kodeRuanganForLog = ruangan.kode_ruangan;
-//   } catch (error) {
-//     next(error);
-//   } finally {
-//     await prisma.$disconnect();
-//   }
-
-//   // Buat pengajuan ruangan terjadwal
-//   try {
-//     const pengajuan = await prisma.peminjaman_Ruangan.create({
-//       data: {
-//         // gedung,
-//         ruangan_id,
-//         jam_mulai: waktu_mulai,
-//         jam_selesai: waktu_selesai,
-//         status: PeminjamanRuanganStatus.DIAJUKAN,
-//         kegiatan: kegiatan || 'Kuliah',
-//         user_id: user_id,
-//         tanggal: new Date(),
-//         dokumen: null
-//       }
-//     });
-
-//     // Ganti Status ruangan jadi DIPAKAI
-//     await prisma.ruangan.update({
-//       where: {
-//         id: ruangan_id
-//       },
-//       data: {
-//         status: $Enums.StatusRuangan.DIAJUKAN
-//       }
-//     });
-//     await logActivity({
-//       user_id: user_id,
-//       pesan: `Pengajuan ruangan terjadwal (${gedung} - Kode Ruangan: ${kodeRuanganForLog ?? ''}) oleh NIM: ${nim}`,
-//       aksi: 'PENGAJUAN RUANGAN',
-//       tabel_terkait: 'Peminjaman_Ruangan'
-//     });
-//     return res.status(201).json({
-//       success: true,
-//       message: "Pengajuan ruangan terjadwal berhasil dibuat",
-//       data: pengajuan
-//     });
-//   } catch (error) {
-//     next(error);
-//   } finally {
-//     await prisma.$disconnect();
-//   }
-// });
 
 const PengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   const { nim, ruangan_id }: PengajuanPeminjamanRuanganBaseRequest = req.body;
@@ -557,6 +471,11 @@ const pembatalanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, r
 });
 
 const getListPengajuanRuanganTerjadwal = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+   const cacheKey = "pengajuan_list:" + JSON.stringify(req.query);
+  const cached = getPengajuanCache(cacheKey);
+  if (cached) {
+    return res.status(200).json(cached);
+  }
   const { id, ruangan_id, user_id, jam_mulai, jam_selesai, status, kegiatan, tanggal, dokumen, createdAt, updatedAt, responded_by, responden } = req.query;
   try {
     const peminjamanRuanganListWithRole = await prisma.peminjaman_Ruangan.findMany({
@@ -629,11 +548,13 @@ const getListPengajuanRuanganTerjadwal = asyncHandler(async (req: Request, res: 
       });
     }
 
-    res.status(200).json({
+    const responsePayload = {
       status: 'success',
       message: 'List of pengajuan peminjaman ruangan terjadwal retrieved successfully',
       data: filteredResult
-    });
+    };
+    res.status(200).json(responsePayload);
+    setPengajuanCache(cacheKey, responsePayload);
   } catch (error) {
     throw new AppError(`Failed to get list of scheduled room booking requests, error: ${error}`, 500);
   } finally {

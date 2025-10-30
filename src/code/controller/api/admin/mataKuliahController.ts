@@ -3,11 +3,17 @@ import { PrismaClient } from '@prisma/client';
 import { CreateMatkulRequest, UpdateMatkulRequest, MatkulResponse } from '../../../models/matkul';
 import { AppError, asyncHandler } from '../../../middleware/error';
 
-const prisma = new PrismaClient();
-
+const prisma = new PrismaClient({
+    datasources: {
+        db: {
+            url: process.env.LOCAL_DATABASE_URL
+        }
+    },
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
+});
 // Simple in-memory cache for mata kuliah
 const matkulCache = new Map<string, { data: any, expiry: number }>();
-const CACHE_TTL = 10 * 1000; // 10 detik
+const CACHE_TTL = Math.floor(Math.random() * 6 + 10) * 1000; // 10-15 detik
 
 function setCache(key: string, data: any, ttl: number = CACHE_TTL) {
     matkulCache.set(key, { data, expiry: Date.now() + ttl });
