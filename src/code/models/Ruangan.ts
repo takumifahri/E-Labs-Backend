@@ -32,6 +32,22 @@ export interface Ruangan {
     deletedAt?: Date;
 }
 
+export interface isAvailableRuangan {
+    id: number;
+    nama_ruangan: string;
+    kode_ruangan: string;
+    gedung: string;
+    
+    list_jam_terpakai: Array<{
+        jam_mulai: Date;
+        jam_selesai: Date;
+    }>;
+
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date;
+}
+
 export interface CreateRuanganRequest {
     gedung: string;
     nama_ruangan: string;
