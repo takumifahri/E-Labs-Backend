@@ -334,11 +334,11 @@ const lengkapiPengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Req
     const endHour = new Date(waktu_selesai).getHours();
     if (startHour < 6 || endHour > 17) {
       return res.status(400).json({
-      success: false,
-      message: "Peminjaman ruangan hanya dapat dilakukan antara jam 6 pagi hingga jam 5 sore"
+        success: false,
+        message: "Peminjaman ruangan hanya dapat dilakukan antara jam 6 pagi hingga jam 5 sore"
       });
     }
-    
+
     const jadwalTerpakai = await prisma.peminjaman_Ruangan.findMany({
       where: {
         ruangan_id: peminjamanRuangan.ruangan_id,
@@ -739,12 +739,71 @@ const aktivasiPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, res
 const isRuanganAvailable = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   const { ruangan_id, tanggal, jam_mulai, jam_selesai } = req.body;
 
-  if (!ruangan_id || !tanggal || !jam_mulai || !jam_selesai) {
+  if (!tanggal || !jam_mulai || !jam_selesai) {
     return res.status(400).json({
       success: false,
       message: "Semua field harus diisi"
     });
   }
+
+
+  // Jika ruangan_id tidak diisi, ambil semua ruangan beserta jadwal terpakai
+  if (!ruangan_id) {
+    const ruangans = await prisma.ruangan.findMany({
+      where: { deletedAt: null }
+    });
+
+    // Ambil jadwal terpakai untuk semua ruangan di tanggal yang sama
+    const jadwalAll = await prisma.peminjaman_Ruangan.findMany({
+      where: {
+        status: { in: ['DISETUJUI', 'BERLANGSUNG'] },
+        OR: [
+          {
+            jam_mulai: {
+              gte: new Date(tanggal + "T00:00:00.000Z"),
+              lte: new Date(tanggal + "T23:59:59.999Z")
+            }
+          },
+          {
+            jam_selesai: {
+              gte: new Date(tanggal + "T00:00:00.000Z"),
+              lte: new Date(tanggal + "T23:59:59.999Z")
+            }
+          }
+        ]
+      },
+      select: {
+        ruangan_id: true,
+        jam_mulai: true,
+        jam_selesai: true
+      }
+    });
+
+    // Gabungkan jadwal ke masing-masing ruangan
+    const result = ruangans.map((r) => ({
+      id: r.id,
+      nama_ruangan: r.nama_ruangan,
+      kode_ruangan: r.kode_ruangan,
+      gedung: r.gedung,
+      list_jam_terpakai: jadwalAll
+        .filter(j => j.ruangan_id === r.id)
+        .map((j, idx) => ({
+          id: idx,
+          jam_mulai: j.jam_mulai ?? new Date(0),
+          jam_selesai: j.jam_selesai ?? new Date(0)
+        })),
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      deletedAt: r.deletedAt ?? undefined
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "List ruangan dan jadwal terpakai pada tanggal yang dipilih",
+      data: result
+    });
+  }
+
   try {
     // Kita cek apakah tanggal dia input sebelum jam saat ini (overlap)
     const now = new Date();
@@ -844,9 +903,9 @@ const isRuanganAvailable = asyncHandler(async (req: Request, res: Response, next
       kode_ruangan: ruangan.kode_ruangan,
       gedung: ruangan.gedung,
       list_jam_terpakai: jadwalTerpakai.map((j, idx) => ({
-      id: idx, // id diisi dengan index agar mudah diakses
-      jam_mulai: j.jam_mulai ?? new Date(0),
-      jam_selesai: j.jam_selesai ?? new Date(0)
+        id: idx, // id diisi dengan index agar mudah diakses
+        jam_mulai: j.jam_mulai ?? new Date(0),
+        jam_selesai: j.jam_selesai ?? new Date(0)
       })),
       createdAt: ruangan.createdAt,
       updatedAt: ruangan.updatedAt,
