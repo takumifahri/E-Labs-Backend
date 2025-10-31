@@ -15,15 +15,11 @@ AdminMatkulRouter.post(
 
 AdminMatkulRouter.get(
     '/list',
-    authMiddleware,
-    AuthMiddleware.Checkroles(AccessRoles),
     MataKuliahController.getAllMatkul
 );
 
 AdminMatkulRouter.get(
     '/:id',
-    authMiddleware,
-    AuthMiddleware.Checkroles(AccessRoles),
     MataKuliahController.getMatkulById
 );
 
