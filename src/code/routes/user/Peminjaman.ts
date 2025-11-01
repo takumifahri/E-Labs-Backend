@@ -23,7 +23,7 @@ PeminjamanRouter.post("/ruangan/terjadwal", PeminjamanRuanganController.Pengajua
 PeminjamanRouter.patch("/ruangan/terjadwal/lengkapi/:id", PeminjamanUpload,  PeminjamanRuanganController.lengkapiPengajuanPeminjamanRuanganTerjadwal);
 // list pengajuan untuk transparansi
 PeminjamanRouter.get("/ruangan/terjadwal/list", PeminjamanRuanganController.getListPengajuanRuanganTerjadwal);
-
+    
 // Available ruangan
 PeminjamanRouter.get("/ruangan/list", PeminjamanRuanganController.getAllRuangan);
 PeminjamanRouter.get("/ruangan/:id", PeminjamanRuanganController.getDetailRuangan);

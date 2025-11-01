@@ -3,7 +3,7 @@ import cors from 'cors';
 const corsOptions: cors.CorsOptions = {
     origin: [
         'http://localhost:3000', 
-        'http://localhost:5137', 
+        'http://localhost:5137',    
         
         'https://backend-takumifahri.vercel.app/'
     ],
