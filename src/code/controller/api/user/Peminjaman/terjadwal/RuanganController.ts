@@ -5,6 +5,9 @@ import { asyncHandler, AppError } from "../../../../../middleware/error";
 import { CreateRuanganRequest, pembatalanPeminjamanRuanganTerjadwalRequest, PeminjamanRuanganStatus, PengajuanPeminjamanRuanganBaseRequest, PengajuanRuanganaTerjadwalRequest, LengkapiDataPengajuanRuanganRequest, Ruangan, StatusRuangan, ListPengajuanPeminjamanRuanganResponse, isAvailableRuangan } from "../../../../../models/Ruangan";
 import { error } from "console";
 import { logActivity } from "../../LogController";
+import crypto from "crypto";
+import { transporter } from "../../../../../utils/Mail.config";
+
 const prisma = new PrismaClient({
   datasources: {
     db: {
@@ -148,13 +151,72 @@ const PengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, re
     }
 
     // Buat pengajuan ruangan terjadwal
+    // Generate unique token: waktu-tanggal_namaRuangan_userId_hash
+    const now = new Date();
+    const waktuTanggal = now.toISOString().replace(/[-:.TZ]/g, '').slice(0, 12); // Ambil bagian awal saja
+    const namaRuangan = getRuangan.nama_ruangan.replace(/\s+/g, '').toLowerCase().slice(0, 8); // Maks 8 karakter
+    const userIdStr = user_id.toString();
+    // Token lebih singkat: tanggal hari ini (YYYYMMDD) + idRuangan
+    const today = new Date();
+    const shortDate = today.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+    const rawToken = `${shortDate}${getRuangan.id}`;
+
+    // Hash pendek untuk keunikan
+    const hash = crypto.createHash('sha256').update(rawToken).digest('hex').slice(0, 6);
+
+    const token = `${rawToken}${hash}`;
+
     const pengajuan = await prisma.peminjaman_Ruangan.create({
       data: {
         ruangan_id: getRuangan.id,
         user_id: user_id,
         status: StatusPeminjamanRuangan.PENDING,
+        token: token
       }
     });
+
+    const pengaju = await prisma.user.findUnique({
+      where: { id: user_id }
+    });
+
+    if (pengaju && pengaju.email) {
+      const subject = "Token Pengajuan Peminjaman Ruangan Terjadwal";
+      const message = `
+        Pengajuan peminjaman ruangan Anda telah berhasil dibuat.<br>
+        Berikut adalah token unik untuk melengkapi pengajuan:<br>
+        <b>${token}</b><br>
+        Silakan gunakan token ini untuk melengkapi data pengajuan pada sistem.<br>
+        Jangan bagikan token ini kepada orang lain.
+      `;
+
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || '"Admin E-Labs Cervosys" <kagawahizashi@gmail.com>',
+        to: pengaju.email,
+        subject,
+        html: `
+          <div style="font-family: Arial, sans-serif; background: #f9f9f9; padding: 24px;">
+            <div style="background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #eee; padding: 24px;">
+              <h2 style="color: #1976d2;">Token Pengajuan Peminjaman Ruangan</h2>
+              <p style="font-size: 16px; color: #333;">
+                ${message}
+              </p>
+              <hr style="margin: 32px 0;">
+              <p style="font-size: 13px; color: #888;">
+                Jika ada pertanyaan, silakan hubungi admin melalui <a href="mailto:support@yourdomain.com">support@yourdomain.com</a>.
+              </p>
+            </div>
+          </div>
+        `
+      });
+    }
+    // Tambahkan token serta kirim ke email pengguna
+    await logActivity({
+      user_id: user_id,
+      pesan: `Pengajuan peminjaman ruangan terjadwal dengan ID ${pengajuan.id} telah dibuat dan menunggu persetujuan.`,
+      aksi: 'PENGAJUAN RUANGAN',
+      tabel_terkait: 'Peminjaman_Ruangan'
+    });
+
 
     // Kita ubah si status ruangan jadi diajukan
     await prisma.ruangan.update({
@@ -180,6 +242,41 @@ const PengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, re
 const lengkapiPengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   const { id } = req.params;
   const { matkul_id, waktu_mulai, waktu_selesai, dokumen, kegiatan }: LengkapiDataPengajuanRuanganRequest = req.body;
+
+  // cek token dari peminjaman yg dimiliki user, jika token sama dengan token yg ada di peminajaman ruangan.
+  // Ambil token dari request body
+  const { token } = req.body;
+  if (!token) {
+    return res.status(400).json({
+      success: false,
+      message: "Token harus disertakan untuk melengkapi pengajuan peminjaman ruangan terjadwal"
+    });
+  }
+
+  // Ambil token dari database berdasarkan id peminjaman
+  const getPeminjamanToken = await prisma.peminjaman_Ruangan.findUnique({
+    where: {
+      id: parseInt(id)
+    },
+    select: {
+      token: true
+    }
+  });
+
+  if (!getPeminjamanToken) {
+    return res.status(404).json({
+      success: false,
+      message: "Peminjaman ruangan terjadwal tidak ditemukan"
+    });
+  }
+
+  // Validasi token
+  if (getPeminjamanToken.token !== token) {
+    return res.status(403).json({
+      success: false,
+      message: "Token tidak valid untuk peminjaman ruangan terjadwal ini"
+    });
+  }
 
   try {
     const peminjamanRuangan = await prisma.peminjaman_Ruangan.findUnique({
@@ -240,12 +337,18 @@ const lengkapiPengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Req
 
     // Prevent overlapping bookings at the same time
     const tanggal = peminjamanRuangan.tanggal ? peminjamanRuangan.tanggal.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    // Ensure waktu_mulai and waktu_selesai use correct ISO format
     const waktuMulaiBaru = new Date(waktu_mulai);
     const waktuSelesaiBaru = new Date(waktu_selesai);
-
     // Prevent jika dia ngajuin di atas jam 17 dan di bawah jam 6
-    const startHour = new Date(waktu_mulai).getHours();
-    const endHour = new Date(waktu_selesai).getHours();
+    const startHour = waktuMulaiBaru.getHours();
+    const endHour = waktuSelesaiBaru.getHours();
+    if (isNaN(startHour) || isNaN(endHour)) {
+      return res.status(400).json({
+        success: false,
+        message: "Format waktu_mulai dan waktu_selesai tidak valid, gunakan format ISO seperti 'YYYY-MM-DDTHH:mm:ss.sssZ'"
+      });
+    }
     if (startHour < 6 || endHour > 17) {
       return res.status(400).json({
         success: false,
@@ -318,8 +421,8 @@ const lengkapiPengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Req
         matkul_id: matkul.id || null,
         tanggal: new Date(tanggal),
         status: StatusPeminjamanRuangan.DIAJUKAN,
-        jam_mulai: waktu_mulai,
-        jam_selesai: waktu_selesai,
+        jam_mulai: new Date(waktu_mulai),
+        jam_selesai: new Date(waktu_selesai),
         dokumen: dokumen || null,
         kegiatan: kegiatan || 'Kuliah'
       }
@@ -471,7 +574,7 @@ const pembatalanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, r
 });
 
 const getListPengajuanRuanganTerjadwal = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-   const cacheKey = "pengajuan_list:" + JSON.stringify(req.query);
+  const cacheKey = "pengajuan_list:" + JSON.stringify(req.query);
   const cached = getPengajuanCache(cacheKey);
   if (cached) {
     return res.status(200).json(cached);
