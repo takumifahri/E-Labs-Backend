@@ -2,9 +2,12 @@ import { Request, Response, NextFunction } from "express";
 import { PrismaClient, $Enums, StatusPeminjamanRuangan } from "@prisma/client";
 import { withAccelerate } from "@prisma/extension-accelerate";
 import { asyncHandler, AppError } from "../../../../../middleware/error";
-import { CreateRuanganRequest, pembatalanPeminjamanRuanganTerjadwalRequest, PeminjamanRuanganStatus, PengajuanPeminjamanRuanganBaseRequest, PengajuanRuanganaTerjadwalRequest, LengkapiDataPengajuanRuanganRequest, Ruangan, StatusRuangan, ListPengajuanPeminjamanRuanganResponse } from "../../../../../models/Ruangan";
+import { CreateRuanganRequest, pembatalanPeminjamanRuanganTerjadwalRequest, PeminjamanRuanganStatus, PengajuanPeminjamanRuanganBaseRequest, PengajuanRuanganaTerjadwalRequest, LengkapiDataPengajuanRuanganRequest, Ruangan, StatusRuangan, ListPengajuanPeminjamanRuanganResponse, isAvailableRuangan } from "../../../../../models/Ruangan";
 import { error } from "console";
 import { logActivity } from "../../LogController";
+import crypto from "crypto";
+import { transporter } from "../../../../../utils/Mail.config";
+
 const prisma = new PrismaClient({
   datasources: {
     db: {
@@ -12,6 +15,27 @@ const prisma = new PrismaClient({
     }
   }
 })
+
+const pengajuanCache = new Map<string, { data: any, expiry: number }>();
+const CACHE_TTL = Math.floor(Math.random() * 6 + 10) * 1000; // 10-15 detik
+
+function setPengajuanCache(key: string, data: any, ttl: number = CACHE_TTL) {
+  pengajuanCache.set(key, { data, expiry: Date.now() + ttl });
+}
+
+function getPengajuanCache(key: string) {
+  const cached = pengajuanCache.get(key);
+  if (!cached) return undefined;
+  if (Date.now() > cached.expiry) {
+    pengajuanCache.delete(key);
+    return undefined;
+  }
+  return cached.data;
+}
+
+function clearPengajuanCache() {
+  pengajuanCache.clear();
+}
 
 // Get all ruangan (DTO sesuai interface Ruangan) secara ascending berdasarkan id
 const getAllRuangan = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
@@ -76,113 +100,6 @@ const getDetailRuangan = asyncHandler(async (req: Request, res: Response, next: 
   }
 });
 
-// Terjadwal, Dia ga perlu login
-// const PeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-//   const { gedung, nim, ruangan_id, waktu_mulai, waktu_selesai, kegiatan }: PengajuanRuanganaTerjadwalRequest = req.body;
-
-//   // cari gedung lalu nanti di sort untuk ruangannya
-//   const gedungDatas = await prisma.ruangan.findFirst({
-//     where: {
-//       gedung: gedung
-//     }
-//   });
-//   if (!gedungDatas) {
-//     return res.status(404).json({
-//       success: false,
-//       message: "Gedung tidak ditemukan"
-//     });
-//   }
-//   // Kita get User_id bberdasarkan NIM
-//   let user_id: number | undefined = undefined;
-//   try {
-//     if (nim) {
-//       const user = await prisma.user.findFirst({
-//         where: {
-//           NIM: nim
-//         }
-//       });
-//       if (user) {
-//         user_id = user.id;
-//       }
-//     }
-//   } catch (error) {
-//     next(error);
-//   }
-//   if (typeof user_id !== "number") {
-//     return res.status(400).json({
-//       success: false,
-//       message: "User tidak ditemukan"
-//     });
-//   }
-
-//   // Declare kodeRuanganForLog with a default value
-//   let kodeRuanganForLog: string | undefined = undefined;
-
-//   // Cek apakah ada ruangan id
-//   try {
-//     const ruangan = await prisma.ruangan.findUnique({
-//       where: {
-//         id: ruangan_id,
-//         gedung: gedungDatas.gedung
-//       }
-//     });
-//     if (!ruangan) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Ruangan tidak ditemukan"
-//       });
-//     }
-//     // Save kode_ruangan for logging
-//     kodeRuanganForLog = ruangan.kode_ruangan;
-//   } catch (error) {
-//     next(error);
-//   } finally {
-//     await prisma.$disconnect();
-//   }
-
-//   // Buat pengajuan ruangan terjadwal
-//   try {
-//     const pengajuan = await prisma.peminjaman_Ruangan.create({
-//       data: {
-//         // gedung,
-//         ruangan_id,
-//         jam_mulai: waktu_mulai,
-//         jam_selesai: waktu_selesai,
-//         status: PeminjamanRuanganStatus.DIAJUKAN,
-//         kegiatan: kegiatan || 'Kuliah',
-//         user_id: user_id,
-//         tanggal: new Date(),
-//         dokumen: null
-//       }
-//     });
-
-//     // Ganti Status ruangan jadi DIPAKAI
-//     await prisma.ruangan.update({
-//       where: {
-//         id: ruangan_id
-//       },
-//       data: {
-//         status: $Enums.StatusRuangan.DIAJUKAN
-//       }
-//     });
-//     await logActivity({
-//       user_id: user_id,
-//       pesan: `Pengajuan ruangan terjadwal (${gedung} - Kode Ruangan: ${kodeRuanganForLog ?? ''}) oleh NIM: ${nim}`,
-//       aksi: 'PENGAJUAN RUANGAN',
-//       tabel_terkait: 'Peminjaman_Ruangan'
-//     });
-//     return res.status(201).json({
-//       success: true,
-//       message: "Pengajuan ruangan terjadwal berhasil dibuat",
-//       data: pengajuan
-//     });
-//   } catch (error) {
-//     next(error);
-//   } finally {
-//     await prisma.$disconnect();
-//   }
-// });
-
 const PengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   const { nim, ruangan_id }: PengajuanPeminjamanRuanganBaseRequest = req.body;
   // pertama kita ambil dulu si ruangan_id nya
@@ -234,13 +151,72 @@ const PengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, re
     }
 
     // Buat pengajuan ruangan terjadwal
+    // Generate unique token: waktu-tanggal_namaRuangan_userId_hash
+    const now = new Date();
+    const waktuTanggal = now.toISOString().replace(/[-:.TZ]/g, '').slice(0, 12); // Ambil bagian awal saja
+    const namaRuangan = getRuangan.nama_ruangan.replace(/\s+/g, '').toLowerCase().slice(0, 8); // Maks 8 karakter
+    const userIdStr = user_id.toString();
+    // Token lebih singkat: tanggal hari ini (YYYYMMDD) + idRuangan
+    const today = new Date();
+    const shortDate = today.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+    const rawToken = `${shortDate}${getRuangan.id}`;
+
+    // Hash pendek untuk keunikan
+    const hash = crypto.createHash('sha256').update(rawToken).digest('hex').slice(0, 6);
+
+    const token = `${rawToken}${hash}`;
+
     const pengajuan = await prisma.peminjaman_Ruangan.create({
       data: {
         ruangan_id: getRuangan.id,
         user_id: user_id,
         status: StatusPeminjamanRuangan.PENDING,
+        token: token
       }
     });
+
+    const pengaju = await prisma.user.findUnique({
+      where: { id: user_id }
+    });
+
+    if (pengaju && pengaju.email) {
+      const subject = "Token Pengajuan Peminjaman Ruangan Terjadwal";
+      const message = `
+        Pengajuan peminjaman ruangan Anda telah berhasil dibuat.<br>
+        Berikut adalah token unik untuk melengkapi pengajuan:<br>
+        <b>${token}</b><br>
+        Silakan gunakan token ini untuk melengkapi data pengajuan pada sistem.<br>
+        Jangan bagikan token ini kepada orang lain.
+      `;
+
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || '"Admin E-Labs Cervosys" <kagawahizashi@gmail.com>',
+        to: pengaju.email,
+        subject,
+        html: `
+          <div style="font-family: Arial, sans-serif; background: #f9f9f9; padding: 24px;">
+            <div style="background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #eee; padding: 24px;">
+              <h2 style="color: #1976d2;">Token Pengajuan Peminjaman Ruangan</h2>
+              <p style="font-size: 16px; color: #333;">
+                ${message}
+              </p>
+              <hr style="margin: 32px 0;">
+              <p style="font-size: 13px; color: #888;">
+                Jika ada pertanyaan, silakan hubungi admin melalui <a href="mailto:support@yourdomain.com">support@yourdomain.com</a>.
+              </p>
+            </div>
+          </div>
+        `
+      });
+    }
+    // Tambahkan token serta kirim ke email pengguna
+    await logActivity({
+      user_id: user_id,
+      pesan: `Pengajuan peminjaman ruangan terjadwal dengan ID ${pengajuan.id} telah dibuat dan menunggu persetujuan.`,
+      aksi: 'PENGAJUAN RUANGAN',
+      tabel_terkait: 'Peminjaman_Ruangan'
+    });
+
 
     // Kita ubah si status ruangan jadi diajukan
     await prisma.ruangan.update({
@@ -251,7 +227,7 @@ const PengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, re
         status: StatusRuangan.DIAJUKAN
       }
     });
-    
+
     res.status(201).json({
       success: true,
       message: "Pengajuan ruangan terjadwal berhasil dibuat, silahkan isi data yang diperlukan untuk melengkapi pengajuan.",
@@ -262,12 +238,46 @@ const PengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, re
   }
 });
 
+// Clear, udh sesuai. ga bisa pengajuan jika dia udah ada di jam yang sama
 const lengkapiPengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  // This function can be implemented later if needed
   const { id } = req.params;
   const { matkul_id, waktu_mulai, waktu_selesai, dokumen, kegiatan }: LengkapiDataPengajuanRuanganRequest = req.body;
 
-  // Cek apakah ada ruangan id
+  // cek token dari peminjaman yg dimiliki user, jika token sama dengan token yg ada di peminajaman ruangan.
+  // Ambil token dari request body
+  const { token } = req.body;
+  if (!token) {
+    return res.status(400).json({
+      success: false,
+      message: "Token harus disertakan untuk melengkapi pengajuan peminjaman ruangan terjadwal"
+    });
+  }
+
+  // Ambil token dari database berdasarkan id peminjaman
+  const getPeminjamanToken = await prisma.peminjaman_Ruangan.findUnique({
+    where: {
+      id: parseInt(id)
+    },
+    select: {
+      token: true
+    }
+  });
+
+  if (!getPeminjamanToken) {
+    return res.status(404).json({
+      success: false,
+      message: "Peminjaman ruangan terjadwal tidak ditemukan"
+    });
+  }
+
+  // Validasi token
+  if (getPeminjamanToken.token !== token) {
+    return res.status(403).json({
+      success: false,
+      message: "Token tidak valid untuk peminjaman ruangan terjadwal ini"
+    });
+  }
+
   try {
     const peminjamanRuangan = await prisma.peminjaman_Ruangan.findUnique({
       where: {
@@ -281,14 +291,12 @@ const lengkapiPengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Req
       });
     }
 
-    // cek apakah statusnya bukan pending?
     if (peminjamanRuangan.status !== StatusPeminjamanRuangan.PENDING) {
       return res.status(400).json({
         success: false,
         message: "Hanya peminjaman ruangan dengan status PENDING yang dapat dilengkapi datanya"
       });
     }
-    // cek apakah matkul_id disertakan
     if (!matkul_id) {
       return res.status(400).json({
         success: false,
@@ -296,8 +304,6 @@ const lengkapiPengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Req
       });
     }
 
-    // ambil relasi dari matkul sesuai dengan semester si user dan satu prodi dengan user
-    // Fetch user first
     const user = await prisma.user.findUnique({
       where: {
         id: peminjamanRuangan.user_id
@@ -328,18 +334,95 @@ const lengkapiPengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Req
         message: "Mata kuliah tidak ditemukan"
       });
     }
-    // update data peminjaman ruangan terjadwal
-    const now = new Date();
+
+    // Prevent overlapping bookings at the same time
+    const tanggal = peminjamanRuangan.tanggal ? peminjamanRuangan.tanggal.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    // Ensure waktu_mulai and waktu_selesai use correct ISO format
+    const waktuMulaiBaru = new Date(waktu_mulai);
+    const waktuSelesaiBaru = new Date(waktu_selesai);
+    // Prevent jika dia ngajuin di atas jam 17 dan di bawah jam 6
+    const startHour = waktuMulaiBaru.getHours();
+    const endHour = waktuSelesaiBaru.getHours();
+    if (isNaN(startHour) || isNaN(endHour)) {
+      return res.status(400).json({
+        success: false,
+        message: "Format waktu_mulai dan waktu_selesai tidak valid, gunakan format ISO seperti 'YYYY-MM-DDTHH:mm:ss.sssZ'"
+      });
+    }
+    if (startHour < 6 || endHour > 17) {
+      return res.status(400).json({
+        success: false,
+        message: "Peminjaman ruangan hanya dapat dilakukan antara jam 6 pagi hingga jam 5 sore"
+      });
+    }
+
+    const jadwalTerpakai = await prisma.peminjaman_Ruangan.findMany({
+      where: {
+        ruangan_id: peminjamanRuangan.ruangan_id,
+        status: { in: ['DISETUJUI', 'BERLANGSUNG', 'DIAJUKAN', 'PENDING'] },
+        OR: [
+          {
+            jam_mulai: {
+              gte: new Date(tanggal + "T00:00:00.000Z"),
+              lte: new Date(tanggal + "T23:59:59.999Z")
+            }
+          },
+          {
+            jam_selesai: {
+              gte: new Date(tanggal + "T00:00:00.000Z"),
+              lte: new Date(tanggal + "T23:59:59.999Z")
+            }
+          }
+        ]
+      },
+      select: {
+        id: true,
+        jam_mulai: true,
+        jam_selesai: true
+      }
+    });
+
+    for (const jadwal of jadwalTerpakai) {
+      if (jadwal.id === parseInt(id)) continue; // Skip current booking
+      if (jadwal.jam_mulai && jadwal.jam_selesai) {
+        const jadwalMulai = new Date(jadwal.jam_mulai);
+        const jadwalSelesai = new Date(jadwal.jam_selesai);
+
+        // Prevent exact same start/end time
+        if (
+          waktuMulaiBaru.getTime() === jadwalMulai.getTime() ||
+          waktuSelesaiBaru.getTime() === jadwalSelesai.getTime()
+        ) {
+          return res.status(400).json({
+            success: false,
+            message: "Waktu peminjaman ruangan tidak boleh sama persis dengan jadwal lain, silakan pilih waktu lain."
+          });
+        }
+
+        // Prevent overlapping
+        if (
+          (waktuMulaiBaru < jadwalSelesai && waktuMulaiBaru >= jadwalMulai) ||
+          (waktuSelesaiBaru > jadwalMulai && waktuSelesaiBaru <= jadwalSelesai) ||
+          (waktuMulaiBaru <= jadwalMulai && waktuSelesaiBaru >= jadwalSelesai)
+        ) {
+          return res.status(400).json({
+            success: false,
+            message: "Waktu peminjaman ruangan bertabrakan dengan jadwal yang sudah ada, silakan pilih waktu lain."
+          });
+        }
+      }
+    }
+
     const updatePeminjaman = await prisma.peminjaman_Ruangan.update({
       where: {
         id: parseInt(id)
       },
       data: {
         matkul_id: matkul.id || null,
-        tanggal: now,
+        tanggal: new Date(tanggal),
         status: StatusPeminjamanRuangan.DIAJUKAN,
-        jam_mulai: waktu_mulai,
-        jam_selesai: waktu_selesai,
+        jam_mulai: new Date(waktu_mulai),
+        jam_selesai: new Date(waktu_selesai),
         dokumen: dokumen || null,
         kegiatan: kegiatan || 'Kuliah'
       }
@@ -354,7 +437,6 @@ const lengkapiPengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Req
   } finally {
     await prisma.$disconnect();
   }
-
 });
 
 const pembatalanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
@@ -492,6 +574,11 @@ const pembatalanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, r
 });
 
 const getListPengajuanRuanganTerjadwal = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  const cacheKey = "pengajuan_list:" + JSON.stringify(req.query);
+  const cached = getPengajuanCache(cacheKey);
+  if (cached) {
+    return res.status(200).json(cached);
+  }
   const { id, ruangan_id, user_id, jam_mulai, jam_selesai, status, kegiatan, tanggal, dokumen, createdAt, updatedAt, responded_by, responden } = req.query;
   try {
     const peminjamanRuanganListWithRole = await prisma.peminjaman_Ruangan.findMany({
@@ -525,21 +612,21 @@ const getListPengajuanRuanganTerjadwal = asyncHandler(async (req: Request, res: 
       responded_by: pr.accepted_by_id,
       responden: pr.accepted_by
         ? {
-            id: pr.accepted_by.id,
-            nama: pr.accepted_by.nama,
-            email: pr.accepted_by.email,
-            role: pr.accepted_by.role?.nama_role,
-          }
+          id: pr.accepted_by.id,
+          nama: pr.accepted_by.nama,
+          email: pr.accepted_by.email,
+          role: pr.accepted_by.role?.nama_role,
+        }
         : null,
       user: pr.user
         ? {
-            id: pr.user.id,
-            nama: pr.user.nama,
-            email: pr.user.email,
-            NIM: pr.user.NIM,
-            NIP: pr.user.NIP,
-            role: pr.user.role?.nama_role
-          }
+          id: pr.user.id,
+          nama: pr.user.nama,
+          email: pr.user.email,
+          NIM: pr.user.NIM,
+          NIP: pr.user.NIP,
+          role: pr.user.role?.nama_role
+        }
         : null
     }));
 
@@ -564,11 +651,13 @@ const getListPengajuanRuanganTerjadwal = asyncHandler(async (req: Request, res: 
       });
     }
 
-    res.status(200).json({
+    const responsePayload = {
       status: 'success',
       message: 'List of pengajuan peminjaman ruangan terjadwal retrieved successfully',
       data: filteredResult
-    });
+    };
+    res.status(200).json(responsePayload);
+    setPengajuanCache(cacheKey, responsePayload);
   } catch (error) {
     throw new AppError(`Failed to get list of scheduled room booking requests, error: ${error}`, 500);
   } finally {
@@ -671,6 +760,194 @@ const aktivasiPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, res
   }
 });
 
+const isRuanganAvailable = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  const { ruangan_id, tanggal, jam_mulai, jam_selesai } = req.body;
+
+  if (!tanggal || !jam_mulai || !jam_selesai) {
+    return res.status(400).json({
+      success: false,
+      message: "Semua field harus diisi"
+    });
+  }
+
+
+  // Jika ruangan_id tidak diisi, ambil semua ruangan beserta jadwal terpakai
+  if (!ruangan_id) {
+    const ruangans = await prisma.ruangan.findMany({
+      where: { deletedAt: null }
+    });
+
+    // Ambil jadwal terpakai untuk semua ruangan di tanggal yang sama
+    const jadwalAll = await prisma.peminjaman_Ruangan.findMany({
+      where: {
+        status: { in: ['DISETUJUI', 'BERLANGSUNG'] },
+        OR: [
+          {
+            jam_mulai: {
+              gte: new Date(tanggal + "T00:00:00.000Z"),
+              lte: new Date(tanggal + "T23:59:59.999Z")
+            }
+          },
+          {
+            jam_selesai: {
+              gte: new Date(tanggal + "T00:00:00.000Z"),
+              lte: new Date(tanggal + "T23:59:59.999Z")
+            }
+          }
+        ]
+      },
+      select: {
+        ruangan_id: true,
+        jam_mulai: true,
+        jam_selesai: true
+      }
+    });
+
+    // Gabungkan jadwal ke masing-masing ruangan
+    const result = ruangans.map((r) => ({
+      id: r.id,
+      nama_ruangan: r.nama_ruangan,
+      kode_ruangan: r.kode_ruangan,
+      gedung: r.gedung,
+      list_jam_terpakai: jadwalAll
+        .filter(j => j.ruangan_id === r.id)
+        .map((j, idx) => ({
+          id: idx,
+          jam_mulai: j.jam_mulai ?? new Date(0),
+          jam_selesai: j.jam_selesai ?? new Date(0)
+        })),
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      deletedAt: r.deletedAt ?? undefined
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "List ruangan dan jadwal terpakai pada tanggal yang dipilih",
+      data: result
+    });
+  }
+
+  try {
+    // Kita cek apakah tanggal dia input sebelum jam saat ini (overlap)
+    const now = new Date();
+    const inputDate = new Date(tanggal);
+    const inputStartTime = new Date(jam_mulai);
+    const inputEndTime = new Date(jam_selesai);
+
+    // Pakai toISOString untuk membandingkan tanggal dan waktu secara akurat
+    if (
+      inputDate.toISOString() < now.toISOString() ||
+      (inputDate.toDateString() === now.toDateString() && inputStartTime.toISOString() < now.toISOString())
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Tanggal dan jam mulai harus setelah waktu saat ini"
+      });
+    }
+
+
+    // Kita cek jika dia input pada jam 5 pagi dan 6 malam. karena tidak bisa
+    const startHour = inputStartTime.getHours();
+    const endHour = inputEndTime.getHours();
+    // Hanya bisa pinjam antara jam 6 pagi sampai jam 5 sore (tidak termasuk jam 6 pagi dan di atas jam 5 sore)
+    if (startHour < 6 || endHour > 17) {
+      return res.status(400).json({
+        success: false,
+        message: "Peminjaman ruangan hanya dapat dilakukan antara jam 6 pagi hingga jam 5 sore"
+      });
+    }
+    // Cek ketersediaan ruangan dengan filter status
+    const isAvailable = await prisma.peminjaman_Ruangan.findMany({
+      where: {
+        ruangan_id: ruangan_id,
+        tanggal: new Date(tanggal),
+        status: { in: ['DISETUJUI', 'BERLANGSUNG'] }, // Tambahkan filter status
+        AND: [
+          {
+            jam_mulai: {
+              lt: new Date(jam_selesai)
+            }
+          },
+          {
+            jam_selesai: {
+              gt: new Date(jam_mulai)
+            }
+          }
+        ]
+      }
+    });
+    if (isAvailable.length > 0) {
+      return res.status(200).json({
+        success: false,
+        message: "Ruangan tidak tersedia pada waktu yang dipilih, silahkan ditunggu atau pilih waktu lain"
+      });
+    }
+    // Ambil data ruangan
+    const ruangan = await prisma.ruangan.findUnique({
+      where: { id: ruangan_id }
+    });
+    if (!ruangan) {
+      return res.status(404).json({
+        success: false,
+        message: "Ruangan tidak ditemukan"
+      });
+    }
+
+    // Ambil semua jadwal terpakai pada tanggal yang sama
+    const jadwalTerpakai = await prisma.peminjaman_Ruangan.findMany({
+      where: {
+        ruangan_id: ruangan_id,
+        status: { in: ['DISETUJUI', 'BERLANGSUNG'] },
+        OR: [
+          {
+            jam_mulai: {
+              gte: new Date(tanggal + "T00:00:00.000Z"),
+              lte: new Date(tanggal + "T23:59:59.999Z")
+            }
+          },
+          {
+            jam_selesai: {
+              gte: new Date(tanggal + "T00:00:00.000Z"),
+              lte: new Date(tanggal + "T23:59:59.999Z")
+            }
+          }
+        ]
+      },
+      select: {
+        jam_mulai: true,
+        jam_selesai: true
+      }
+    });
+
+
+    const response: isAvailableRuangan = {
+      id: ruangan.id,
+      nama_ruangan: ruangan.nama_ruangan,
+      kode_ruangan: ruangan.kode_ruangan,
+      gedung: ruangan.gedung,
+      list_jam_terpakai: jadwalTerpakai.map((j, idx) => ({
+        id: idx, // id diisi dengan index agar mudah diakses
+        jam_mulai: j.jam_mulai ?? new Date(0),
+        jam_selesai: j.jam_selesai ?? new Date(0)
+      })),
+      createdAt: ruangan.createdAt,
+      updatedAt: ruangan.updatedAt,
+      deletedAt: ruangan.deletedAt ?? undefined
+    };
+
+    return res.status(200).json({
+      success: true,
+      message: "Ruangan tersedia pada waktu yang dipilih",
+      data: response
+    });
+  } catch (error) {
+
+    throw new AppError(`Error checking room availability: ${error}`, 500);
+  }
+
+});
+
 const PeminjamanRuanganController = {
   PengajuanPeminjamanRuanganTerjadwal,
   lengkapiPengajuanPeminjamanRuanganTerjadwal,
@@ -680,6 +957,7 @@ const PeminjamanRuanganController = {
   getAllRuangan,
   getDetailRuangan,
 
-  getListPengajuanRuanganTerjadwal
+  getListPengajuanRuanganTerjadwal,
+  isRuanganAvailable
 };
 export default PeminjamanRuanganController;
