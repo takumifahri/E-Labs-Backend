@@ -104,7 +104,6 @@ const Login = asyncHandler(async (req: express.Request, res: express.Response) =
         // Blacklist token lama
         addToBlacklist(oldToken);
     }
-    // ------------------------------------------
 
     // Set isActive to true on login
     await prisma.user.update({
@@ -133,13 +132,6 @@ const Login = asyncHandler(async (req: express.Request, res: express.Response) =
         isActive: true
     };
 
-    // res.cookie('token', token, {
-    //     httpOnly: true,
-    //     secure: process.env.NODE_ENV === 'production' ? false : false,
-    //     sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-    //     domain: process.env.COOKIE_DOMAIN || '202.10.36.217', // ganti dengan IP/domain sesuai akses client
-    //     maxAge: 6 * 60 * 60 * 1000
-    // });
     res.cookie('token', token, {
         httpOnly: true,
         secure: false, // development: false, production: true (HTTPS)

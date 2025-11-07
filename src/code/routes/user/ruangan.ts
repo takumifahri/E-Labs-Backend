@@ -3,6 +3,7 @@ import RuanganController from '../../controller/api/admin/ruanganController';
 import AuthMiddleware from '../../middleware/authmiddleware';
 import BarangController from '../../controller/api/admin/barangController';
 import { uploadMiddlewares, FileHandler, UploadCategory } from '../../utils/FileHandler';
+import PeminjamanRuanganController from '../../controller/api/user/Peminjaman/terjadwal/RuanganController';
 
 const ruanganRouter = express.Router();
 const authMiddleware = AuthMiddleware.authMiddleware;
@@ -16,6 +17,10 @@ ruanganRouter.get('/',
 
 ruanganRouter.get('/:id', 
     RuanganController.GetRuanganById
+);
+
+ruanganRouter.post('/isAvailable', 
+    PeminjamanRuanganController.isRuanganAvailable
 );
 
 export default ruanganRouter;

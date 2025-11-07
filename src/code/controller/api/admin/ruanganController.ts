@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { CreateRuanganRequest, UpdateRuanganRequest } from "../../../models/Ruangan";
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, StatusPeminjamanRuangan, StatusRuangan } from '@prisma/client';
 import { AppError, asyncHandler } from '../../../middleware/error';
 import QRCode from "qrcode";
 import { FileHandler, UploadCategory } from '../../../utils/FileHandler'; // sesuaikan path
@@ -23,11 +23,11 @@ const ruanganStatsCache = new Map<string, any>();
 
 // Cache configuration
 const CACHE_CONFIG = {
-    DEFAULT_TTL: 10 * 60 * 1000,       // 10 minutes (ruangan data changes less frequently)
-    DETAIL_TTL: 15 * 60 * 1000,        // 15 minutes for details
-    GEDUNG_TTL: 30 * 60 * 1000,        // 30 minutes for building list
-    STATS_TTL: 5 * 60 * 1000,          // 5 minutes for stats
-    MAX_CACHE_SIZE: 500                // Smaller cache for ruangan
+    DEFAULT_TTL: Math.floor(Math.random() * 5000) + 10000,   // 10-15 seconds
+    DETAIL_TTL: Math.floor(Math.random() * 5000) + 10000,    // 10-15 seconds for details
+    GEDUNG_TTL: Math.floor(Math.random() * 5000) + 10000,    // 10-15 seconds for building list
+    STATS_TTL: Math.floor(Math.random() * 5000) + 10000,     // 10-15 seconds for stats
+    MAX_CACHE_SIZE: 500                                      // Smaller cache for ruangan
 };
 
 // Cache helpers
@@ -273,67 +273,115 @@ const CreateRuangan = asyncHandler(async (req: Request, res: Response) => {
         cache_cleared: true
     });
 });
-const GetRuanganMaster = asyncHandler(async (req: Request, res: Response) => {
+
+
+// --- Helper Function ---
+// Fungsi ini akan "menyuntikkan" status PENDING ke data ruangan
+// Dia berjalan SETELAH data diambil (baik dari cache atau DB)
+const applyPendingStatus = (ruangan: any, pendingRoomIds: Set<number>) => {
+    let finalStatus = ruangan.status;
+
+    // Jika status di DB adalah 'KOSONG' TAPI ID-nya ada di daftar 'PENDING',
+    // ubah statusnya menjadi 'PENDING' untuk frontend.
+    if (ruangan.status === 'KOSONG' && pendingRoomIds.has(ruangan.id)) {
+        finalStatus = 'PENDING';
+    }
+
+    return {
+        ...ruangan,
+        status: finalStatus, // <-- Status yang sudah "pintar"
+        QR_Image_url: ruangan.QR_Image ? `ruangan/${ruangan.QR_Image}` : null
+    };
+};
+
+// --- Controller Utama (Sudah Dimodifikasi) ---
+export const GetRuanganMaster = asyncHandler(async (req: Request, res: Response) => {
     const { gedung, nama_ruangan, kode_ruangan, status } = req.query;
     const filters: any = { gedung, nama_ruangan, kode_ruangan, status };
-    if (status !== undefined) filters.status = status;
 
+    // <-- TAMBAHAN: Ambil SEMUA ID ruangan yang PENDING (fresh, setiap saat)
+    // Ini query yang sangat cepat dan ringan.
+    // use generated client model name (matches schema: Peminjaman_Ruangan -> peminjaman_Ruangan)
+    const pendingPeminjamans = await prisma.peminjaman_Ruangan.findMany({
+        where: { status: StatusPeminjamanRuangan.PENDING },
+        select: { ruangan_id: true }
+    });
+    // Gunakan Set untuk pencarian cepat (O(1))
+    const pendingRoomIds = new Set(pendingPeminjamans.map(p => p.ruangan_id));
+
+    // --- Caching ---
+    // Cache key tetap sama. Kita akan cache data MENTAH dari `ruangan`.
     const cacheKey = getCacheKey('ruangan:list', filters);
-
-    // Try cache first
     const cached = getCache(ruanganCache, cacheKey);
+
     if (cached) {
-        // Add QR_Image URL for each ruangan (just /ruangan/filename)
-        const dataWithUrls = cached.data.map((item: any) => ({
-            ...item,
-            QR_Image_url: item.QR_Image ? `ruangan/${item.QR_Image}` : null
-        }));
+        // <-- TAMBAHAN: Data ada di cache!
+        // Tetap jalankan logika 'applyPendingStatus' pada data cache
+        const dataWithPending = cached.data.map((item: any) => 
+            applyPendingStatus(item, pendingRoomIds)
+        );
 
         return res.status(200).json({
             status: "success",
             ...cached,
-            data: dataWithUrls,
+            data: dataWithPending, // <-- Kirim data yang sudah di-hydrate
             cached: true,
             cache_timestamp: new Date().toISOString(),
             cache_hits: ruanganCache.get(cacheKey)?.hits || 0
         });
     }
 
-    // Build where clause with status filter
+    // --- Jika tidak ada di Cache ---
     const where = buildWhereClause(filters);
 
-    if (filters.status !== undefined) {
-        where.status = filters.status;
+    // <-- MODIFIKASI: Tangani jika frontend filter 'PENDING'
+    if (filters.status === 'PENDING') {
+        // Jika user minta 'PENDING', kita cari di DB yang 'KOSONG'
+        where.status = StatusRuangan.KOSONG;
+        // Dan kita tambahkan filter ID (hanya yang ada di list pending)
+        where.id = {
+            in: Array.from(pendingRoomIds)
+        };
+    } else if (filters.status === 'KOSONG') {
+        // <-- MODIFIKASI: Jika user minta 'KOSONG', pastikan TIDAK 'PENDING'
+        where.status = StatusRuangan.KOSONG;
+        where.id = {
+            notIn: Array.from(pendingRoomIds)
+        };
+    } else if (filters.status !== undefined) {
+        // query param is string; cast to any so Prisma accepts it at runtime
+        where.status = filters.status as any;
     }
 
-    // Ambil semua ruangan tanpa pagination
+    // Ambil semua ruangan dari DB (mentah)
     const ruangans = await prisma.ruangan.findMany({
         where,
         ...optimizedRuanganQuery,
         orderBy: { createdAt: 'asc' }
     });
 
-    // Tambahkan QR_Image_url pada setiap ruangan (just /ruangan/filename)
-    const ruangansWithUrls = ruangans.map(r => ({
-        ...r,
-        QR_Image_url: r.QR_Image ? `ruangan/${r.QR_Image}` : null
-    }));
+    // <-- TAMBAHAN: Hydrate data mentah DB dengan status PENDING
+    const ruangansWithPending = ruangans.map(r => 
+        applyPendingStatus(r, pendingRoomIds)
+    );
 
     const result = {
         status: "success",
         message: "Ruangan retrieved successfully",
-        data: ruangansWithUrls,
-        count: ruangansWithUrls.length,
+        data: ruangansWithPending, // <-- Kirim data yang sudah di-hydrate
+        count: ruangansWithPending.length,
         cached: false
     };
 
-    // Cache the result (cache original data, not with URLs)
+    // Cache the result
+    // PENTING: Kita cache data MENTAH (ruangans), BUKAN data yang sudah di-hydrate
+    // Agar cache-nya tetap valid
     setCache(ruanganCache, cacheKey, {
         ...result,
-        data: ruangans
+        data: ruangans // <-- Simpan data asli (mentah)
     });
 
-    // Background prewarm if cache is not full
+    // Background prewarm (tidak berubah)
     if (ruanganCache.size < CACHE_CONFIG.MAX_CACHE_SIZE) {
         setImmediate(() => prewarmRuanganCaches());
     }
@@ -462,19 +510,6 @@ const DeleteRuangan = asyncHandler(async (req: Request, res: Response) => {
     if (!existing) {
         throw new AppError("Ruangan not found", 404);
     }
-
-    // Check if ruangan is being used (if you have peminjaman_ruangan table)
-    // const activePeminjaman = await prisma.peminjaman_Ruangan.findFirst({
-    //     where: { 
-    //         ruangan_id: parseInt(id), 
-    //         status: 'Active',
-    //         deletedAt: null 
-    //     }
-    // });
-
-    // if (activePeminjaman) {
-    //     throw new AppError("Cannot delete ruangan that is currently being used", 400);
-    // }
 
     const deletedRuangan = await prisma.ruangan.update({
         where: { id: parseInt(id) },
