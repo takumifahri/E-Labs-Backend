@@ -27,6 +27,7 @@ export interface Ruangan {
     kode_ruangan: string;
     status: StatusRuangan;
 
+    
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date;
