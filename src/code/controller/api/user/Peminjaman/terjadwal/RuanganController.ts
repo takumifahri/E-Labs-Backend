@@ -932,6 +932,53 @@ const isRuanganAvailable = asyncHandler(async (req: Request, res: Response, next
   }
 });
 
+const getMatkulByNim = asyncHandler(async (req: Request, res: Response) => {
+  const { nim } = req.params;
+
+  // ⿡ Cari mahasiswa berdasarkan NIM
+  const user = await prisma.user.findFirst({
+    where: { NIM: nim },
+    select: {
+      id: true,
+      semester: true,
+      prodiId: true
+    }
+  });
+
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: "Mahasiswa tidak ditemukan"
+    });
+  }
+
+  // ⿢ Cek apakah prodiId dan semester valid
+  if (user.prodiId == null || user.semester == null) {
+    return res.status(400).json({
+      success: false,
+      message: "Data prodi atau semester mahasiswa belum lengkap"
+    });
+  }
+
+  // ⿣ Ambil semua mata kuliah sesuai prodi & semester
+  const matkulList = await prisma.master_Matkul.findMany({
+    where: {
+      prodi_id: user.prodiId,
+      semester: user.semester
+    },
+    select: {
+      id: true,
+      matkul: true,
+      semester: true
+    }
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Daftar mata kuliah ditemukan",
+    data: matkulList
+  });
+});
 const PeminjamanRuanganController = {
   PengajuanPeminjamanRuanganTerjadwal,
   lengkapiPengajuanPeminjamanRuanganTerjadwal,
@@ -942,6 +989,7 @@ const PeminjamanRuanganController = {
   getDetailRuangan,
 
   getListPengajuanRuanganTerjadwal,
-  isRuanganAvailable
+  isRuanganAvailable,
+  getMatkulByNim
 };
 export default PeminjamanRuanganController;
