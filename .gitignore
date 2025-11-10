@@ -6,3 +6,4 @@ vercel.json
 .api/
 Dockerfile
 docker-compose.yml
+.env.docker
