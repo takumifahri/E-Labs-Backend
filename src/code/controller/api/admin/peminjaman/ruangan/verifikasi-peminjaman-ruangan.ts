@@ -1,11 +1,12 @@
 import { asyncHandler, AppError } from "../../../../../middleware/error";
 import { Request, Response, NextFunction } from "express";
-import { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient, StatusRuangan } from "@prisma/client";
 import { ListPengajuanPeminjamanRuanganResponse } from "../../../../../models/Ruangan";
 import { PeminjamanRuanganStatus } from "../../../../../models/Ruangan";
 import { VerifikasiPeminjamanRequest } from "../../../../../models/verifikasi-peminjaman";
 import { logActivity } from "../../../user/LogController";
 import { get } from "http";
+import { transporter } from "../../../../../utils/Mail.config";
 const prisma = new PrismaClient({
     datasources: {
         db: {
@@ -14,14 +15,38 @@ const prisma = new PrismaClient({
     },
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
 });
+const peminjamanCache = new Map<string, { data: any, expiry: number }>();
+const CACHE_TTL = Math.floor(Math.random() * 6 + 10) * 1000; // 10-15 detik
 
+function setCache(key: string, data: any, ttl: number = CACHE_TTL) {
+    peminjamanCache.set(key, { data, expiry: Date.now() + ttl });
+}
+
+function getCache(key: string) {
+    const cached = peminjamanCache.get(key);
+    if (!cached) return undefined;
+    if (Date.now() > cached.expiry) {
+        peminjamanCache.delete(key);
+        return undefined;
+    }
+    return cached.data;
+}
+
+function clearPeminjamanCache() {
+    peminjamanCache.clear();
+}
 const getAllPeminjamanRuangan = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     // Kita cek apakah user authorized
     const getUser = req.user;
     if (!getUser) {
         throw new AppError('User not authorized', 401);
     }
-
+    // Buat cache key unik berdasarkan query
+    const cacheKey = "peminjaman_list:" + JSON.stringify(req.query);
+    const cached = getCache(cacheKey);
+    if (cached) {
+        return res.status(200).json(cached);
+    }
     const { id, ruangan_id, user_id, jam_mulai, jam_selesai, status, kegiatan, tanggal, dokumen, createdAt, updatedAt, responded_by, responden } = req.query;
     try {
         const peminjamanRuanganListWithRole = await prisma.peminjaman_Ruangan.findMany({
@@ -44,12 +69,12 @@ const getAllPeminjamanRuangan = asyncHandler(async (req: Request, res: Response,
             id: pr.id,
             ruangan_id: pr.ruangan_id,
             user_id: pr.user_id,
-            jam_mulai: pr.jam_mulai,
-            jam_selesai: pr.jam_selesai,
+            jam_mulai: pr.jam_mulai ?? new Date(0),
+            jam_selesai: pr.jam_selesai ?? new Date(0),
             status: pr.status as unknown as PeminjamanRuanganStatus,
-            kegiatan: pr.kegiatan,
-            tanggal: pr.tanggal,
-            dokumen: pr.dokumen,
+            kegiatan: pr.kegiatan ?? "",
+            tanggal: pr.tanggal ?? new Date(0),
+            dokumen: pr.dokumen ?? "",
             createdAt: pr.createdAt,
             updatedAt: pr.updatedAt,
             responded_by: pr.accepted_by_id,
@@ -93,12 +118,17 @@ const getAllPeminjamanRuangan = asyncHandler(async (req: Request, res: Response,
                 return true;
             });
         }
-
+        setCache(cacheKey, {
+            status: 'success',
+            message: 'List of peminjaman ruangan retrieved successfully',
+            data: filteredResult
+        });
         res.status(200).json({
             status: 'success',
             message: 'List of peminjaman ruangan retrieved successfully',
             data: filteredResult
         });
+        
     } catch (error) {
         throw new AppError(`Failed to retrieve peminjaman ruangan, error: ${error}`, 500);
     } finally {
@@ -137,11 +167,11 @@ const getDetailPeminjamanRuangan = asyncHandler(async (req: Request, res: Respon
             id: pr.id,
             ruangan_id: pr.ruangan_id,
             user_id: pr.user_id,
-            jam_mulai: pr.jam_mulai,
-            jam_selesai: pr.jam_selesai,
+            jam_mulai: pr.jam_mulai ?? new Date(0),
+            jam_selesai: pr.jam_selesai ?? new Date(0),
             status: pr.status as unknown as PeminjamanRuanganStatus,
-            kegiatan: pr.kegiatan,
-            tanggal: pr.tanggal,
+            kegiatan: pr.kegiatan ?? 'Kuliah',
+            tanggal: pr.tanggal ?? new Date(0),
             dokumen: pr.dokumen,
             createdAt: pr.createdAt,
             updatedAt: pr.updatedAt,
@@ -183,14 +213,12 @@ const verifikasiAjuanPeminjamanRuangan = asyncHandler(async (req: Request, res: 
     if (!getUser) {
         throw new AppError('User not authorized', 401);
     }
-    console.log("User details:", getUser);
     // Params
     const peminjamanRuanganId = parseInt(req.params.id);
     if (isNaN(peminjamanRuanganId)) {
         throw new AppError('Invalid peminjaman ruangan ID', 400);
     }
 
-    // Verifikasi Logic
     try {
         const { status }: { status: PeminjamanRuanganStatus } = req.body;
 
@@ -220,7 +248,17 @@ const verifikasiAjuanPeminjamanRuangan = asyncHandler(async (req: Request, res: 
                 updatedAt: new Date()
             }
         });
-        // Ambil data ruangan dan user pengaju untuk log
+
+        await prisma.ruangan.update({
+            where: {
+                id: peminjamanRuangan.ruangan_id
+            },
+            data: {
+                status: StatusRuangan.DIPAKAI
+            }
+        });
+
+        // Ambil data ruangan dan user pengaju untuk log dan email
         const ruangan = await prisma.ruangan.findUnique({
             where: { id: peminjamanRuangan.ruangan_id }
         });
@@ -235,13 +273,50 @@ const verifikasiAjuanPeminjamanRuangan = asyncHandler(async (req: Request, res: 
 
         await logActivity({
             user_id: getUser.id,
-            pesan: `Pengajuan ruangan ${kodeRuangan} yang diajukan ${pengajuNIM} - ${pengajuNama} disetujui oleh ${verifikatorNama}`,
+            pesan: `Pengajuan ruangan ${kodeRuangan} yang diajukan ${pengajuNIM} - ${pengajuNama} diverifikasi oleh ${verifikatorNama} dengan status ${status}`,
             aksi: 'PENGAJUAN RUANGAN',
             tabel_terkait: 'Peminjaman_Ruangan'
         });
+
+        // Kirim email ke user pengaju
+        if (pengaju?.email) {
+            let subject = '';
+            let message = '';
+            if (status === PeminjamanRuanganStatus.DISETUJUI) {
+                subject = "Pengajuan Peminjaman Ruangan Disetujui";
+                message = `Selamat ${pengajuNama}, pengajuan peminjaman ruangan ${kodeRuangan} pada tanggal ${peminjamanRuangan.tanggal?.toLocaleDateString()} telah <b>DISETUJUI</b> oleh ${verifikatorNama}. Silakan gunakan ruangan sesuai jadwal yang telah ditentukan.`;
+            } else if (status === PeminjamanRuanganStatus.DITOLAK) {
+                subject = "Pengajuan Peminjaman Ruangan Ditolak";
+                message = `Mohon maaf ${pengajuNama}, pengajuan peminjaman ruangan ${kodeRuangan} pada tanggal ${peminjamanRuangan.tanggal?.toLocaleDateString()} telah <b>DITOLAK</b> oleh ${verifikatorNama}. Silakan hubungi admin untuk informasi lebih lanjut.`;
+            } else {
+                subject = "Status Pengajuan Peminjaman Ruangan";
+                message = `Pengajuan peminjaman ruangan ${kodeRuangan} telah diverifikasi dengan status: ${status}.`;
+            }
+
+            await transporter.sendMail({
+                from: process.env.SMTP_FROM || '"Admin E-Labs Cervosys" <kagawahizashi@gmail.com>',
+                to: pengaju.email,
+                subject,
+                html: `
+                    <div style="font-family: Arial, sans-serif; background: #f9f9f9; padding: 24px;">
+                        <div style="background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #eee; padding: 24px;">
+                            <h2 style="color: #1976d2;">Status Pengajuan Peminjaman Ruangan</h2>
+                            <p style="font-size: 16px; color: #333;">
+                                ${message}
+                            </p>
+                            <hr style="margin: 32px 0;">
+                            <p style="font-size: 13px; color: #888;">
+                                Jika ada pertanyaan, silakan hubungi admin melalui <a href="mailto:support@yourdomain.com">support@yourdomain.com</a>.
+                            </p>
+                        </div>
+                    </div>
+                `
+            });
+        }
+
         res.status(200).json({
             status: 'success',
-            message: 'Peminjaman ruangan verified successfully',
+            message: 'Peminjaman ruangan verified successfully and email sent',
             data: updatedPeminjamanRuangan
         });
 

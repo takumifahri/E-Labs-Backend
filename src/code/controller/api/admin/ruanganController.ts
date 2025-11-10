@@ -23,11 +23,11 @@ const ruanganStatsCache = new Map<string, any>();
 
 // Cache configuration
 const CACHE_CONFIG = {
-    DEFAULT_TTL: 10 * 60 * 1000,       // 10 minutes (ruangan data changes less frequently)
-    DETAIL_TTL: 15 * 60 * 1000,        // 15 minutes for details
-    GEDUNG_TTL: 30 * 60 * 1000,        // 30 minutes for building list
-    STATS_TTL: 5 * 60 * 1000,          // 5 minutes for stats
-    MAX_CACHE_SIZE: 500                // Smaller cache for ruangan
+    DEFAULT_TTL: Math.floor(Math.random() * 5000) + 10000,   // 10-15 seconds
+    DETAIL_TTL: Math.floor(Math.random() * 5000) + 10000,    // 10-15 seconds for details
+    GEDUNG_TTL: Math.floor(Math.random() * 5000) + 10000,    // 10-15 seconds for building list
+    STATS_TTL: Math.floor(Math.random() * 5000) + 10000,     // 10-15 seconds for stats
+    MAX_CACHE_SIZE: 500                                      // Smaller cache for ruangan
 };
 
 // Cache helpers
@@ -273,9 +273,10 @@ const CreateRuangan = asyncHandler(async (req: Request, res: Response) => {
         cache_cleared: true
     });
 });
-const GetRuanganMaster = asyncHandler(async (req: Request, res: Response) => {
-    const { gedung, nama_ruangan, kode_ruangan, status } = req.query;
-    const filters: any = { gedung, nama_ruangan, kode_ruangan, status };
+
+const getRuanganWithJadwal = asyncHandler(async(req: Request, res: Response) => {
+    const { gedung, nama_ruangan, kode_ruangan, status, tanggal } = req.query;
+    const filters: any = { gedung, nama_ruangan, kode_ruangan, status, tanggal };
     if (status !== undefined) filters.status = status;
 
     const cacheKey = getCacheKey('ruangan:list', filters);
@@ -313,8 +314,175 @@ const GetRuanganMaster = asyncHandler(async (req: Request, res: Response) => {
         orderBy: { createdAt: 'asc' }
     });
 
-    // Tambahkan QR_Image_url pada setiap ruangan (just /ruangan/filename)
+    // Tentukan tanggal untuk filter jadwal (default: hari ini)
+    const targetDate = tanggal ? new Date(tanggal as string) : new Date();
+    const dateStr = targetDate.toISOString().split('T')[0];
+
+    // Ambil jadwal terpakai untuk semua ruangan di tanggal yang dipilih
+    const jadwalTerpakai = await prisma.peminjaman_Ruangan.findMany({
+        where: {
+            ruangan_id: { in: ruangans.map(r => r.id) },
+            status: { in: ['DISETUJUI', 'BERLANGSUNG', 'DIAJUKAN', 'PENDING'] },
+            OR: [
+                {
+                    jam_mulai: {
+                        gte: new Date(dateStr + "T00:00:00.000Z"),
+                        lte: new Date(dateStr + "T23:59:59.999Z")
+                    }
+                },
+                {
+                    jam_selesai: {
+                        gte: new Date(dateStr + "T00:00:00.000Z"),
+                        lte: new Date(dateStr + "T23:59:59.999Z")
+                    }
+                }
+            ]
+        },
+        include: {
+            user: {
+                select: {
+                    nama: true,
+                    NIM: true
+                }
+            }
+        },
+        orderBy: { jam_mulai: 'asc' }
+    });
+
+    // Tambahkan QR_Image_url dan jadwal_terpakai pada setiap ruangan
     const ruangansWithUrls = ruangans.map(r => ({
+        ...r,
+        QR_Image_url: r.QR_Image ? `ruangan/${r.QR_Image}` : null,
+        jadwal_terpakai: jadwalTerpakai
+            .filter(j => j.ruangan_id === r.id)
+            .map(j => ({
+                id: j.id,
+                jam_mulai: j.jam_mulai,
+                jam_selesai: j.jam_selesai,
+                status: j.status,
+                kegiatan: j.kegiatan,
+                peminjam: j.user.nama,
+                nim: j.user.NIM
+            }))
+    }));
+
+    const result = {
+        status: "success",
+        message: "Ruangan retrieved successfully",
+        data: ruangansWithUrls,
+        count: ruangansWithUrls.length,
+        filter_tanggal: dateStr,
+        cached: false
+    };
+
+    // Cache the result (cache original data, not with URLs)
+    setCache(ruanganCache, cacheKey, {
+        ...result,
+        data: ruangans
+    });
+
+    // Background prewarm if cache is not full
+    if (ruanganCache.size < CACHE_CONFIG.MAX_CACHE_SIZE) {
+        setImmediate(() => prewarmRuanganCaches());
+    }
+
+    return res.status(200).json(result);
+});
+
+const GetRuanganMaster = asyncHandler(async (req: Request, res: Response) => {
+    const { gedung, nama_ruangan, kode_ruangan, status, tanggal } = req.query;
+    const filters: any = { gedung, nama_ruangan, kode_ruangan, status, tanggal };
+    if (status !== undefined) filters.status = status;
+
+    const cacheKey = getCacheKey('ruangan:list', filters);
+
+    // Try cache first
+    const cached = getCache(ruanganCache, cacheKey);
+    if (cached) {
+        // Add QR_Image URL for each ruangan (already has list_jam_terpakai)
+        const dataWithUrls = cached.data.map((item: any) => ({
+            ...item,
+            QR_Image_url: item.QR_Image ? `ruangan/${item.QR_Image}` : null
+        }));
+
+        return res.status(200).json({
+            status: "success",
+            ...cached,
+            data: dataWithUrls,
+            cached: true,
+            cache_timestamp: new Date().toISOString(),
+            cache_hits: ruanganCache.get(cacheKey)?.hits || 0
+        });
+    }
+
+    // Build where clause with status filter
+    const where = buildWhereClause(filters);
+
+    if (filters.status !== undefined) {
+        where.status = filters.status;
+    }
+
+    // Ambil semua ruangan tanpa pagination
+    const ruangans = await prisma.ruangan.findMany({
+        where,
+        ...optimizedRuanganQuery,
+        orderBy: { createdAt: 'asc' }
+    });
+
+    // Tentukan tanggal untuk filter jadwal (default: hari ini)
+    const targetDate = tanggal ? new Date(tanggal as string) : new Date();
+    const dateStr = targetDate.toISOString().split('T')[0];
+
+    // Ambil jadwal terpakai untuk semua ruangan di tanggal yang dipilih
+    const jadwalTerpakai = await prisma.peminjaman_Ruangan.findMany({
+        where: {
+            ruangan_id: { in: ruangans.map(r => r.id) },
+            status: { in: ['DISETUJUI', 'BERLANGSUNG'] },
+            OR: [
+                {
+                    jam_mulai: {
+                        gte: new Date(dateStr + "T00:00:00.000Z"),
+                        lte: new Date(dateStr + "T23:59:59.999Z")
+                    }
+                },
+                {
+                    jam_selesai: {
+                        gte: new Date(dateStr + "T00:00:00.000Z"),
+                        lte: new Date(dateStr + "T23:59:59.999Z")
+                    }
+                }
+            ]
+        },
+        select: {
+            ruangan_id: true,
+            jam_mulai: true,
+            jam_selesai: true
+        },
+        orderBy: { jam_mulai: 'asc' }
+    });
+
+    // Tambahkan list_jam_terpakai pada setiap ruangan (format sama dengan isRuanganAvailable)
+    const ruangansWithJadwal = ruangans.map(r => ({
+        id: r.id,
+        gedung: r.gedung,
+        nama_ruangan: r.nama_ruangan,
+        kode_ruangan: r.kode_ruangan,
+        status: r.status,
+        QR_Image: r.QR_Image,
+        list_jam_terpakai: jadwalTerpakai
+            .filter(j => j.ruangan_id === r.id)
+            .map((j, idx) => ({
+                id: idx,
+                jam_mulai: j.jam_mulai ?? new Date(0),
+                jam_selesai: j.jam_selesai ?? new Date(0)
+            })),
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+        deletedAt: r.deletedAt
+    }));
+
+    // Tambahkan QR_Image_url untuk response
+    const ruangansWithUrls = ruangansWithJadwal.map(r => ({
         ...r,
         QR_Image_url: r.QR_Image ? `ruangan/${r.QR_Image}` : null
     }));
@@ -324,13 +492,14 @@ const GetRuanganMaster = asyncHandler(async (req: Request, res: Response) => {
         message: "Ruangan retrieved successfully",
         data: ruangansWithUrls,
         count: ruangansWithUrls.length,
+        filter_tanggal: dateStr,
         cached: false
     };
 
-    // Cache the result (cache original data, not with URLs)
+    // Cache the result WITH list_jam_terpakai (without QR_Image_url)
     setCache(ruanganCache, cacheKey, {
         ...result,
-        data: ruangans
+        data: ruangansWithJadwal // Cache dengan list_jam_terpakai
     });
 
     // Background prewarm if cache is not full

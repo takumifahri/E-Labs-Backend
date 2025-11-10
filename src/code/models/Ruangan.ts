@@ -6,6 +6,7 @@
 //     deletedAt?: Date;
 // }
 export enum StatusRuangan {
+    DIAJUKAN = "DIAJUKAN",
     DIPAKAI = "DIPAKAI",
     KOSONG = "KOSONG",
     DIPERBAIKI = "DIPERBAIKI"
@@ -26,6 +27,23 @@ export interface Ruangan {
     kode_ruangan: string;
     status: StatusRuangan;
 
+    
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt?: Date;
+}
+
+export interface isAvailableRuangan {
+    id: number;
+    nama_ruangan: string;
+    kode_ruangan: string;
+    gedung: string;
+    
+    list_jam_terpakai: Array<{
+        jam_mulai: Date;
+        jam_selesai: Date;
+    }>;
+
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date;
@@ -44,10 +62,25 @@ export interface UpdateRuanganRequest {
     kode_ruangan?: string;
 }
 
+export interface PengajuanPeminjamanRuanganBaseRequest{
+    nim?: string;
+    ruangan_id?: number;
+}
+
+export interface LengkapiDataPengajuanRuanganRequest {
+    id: number;
+    matkul_id?: number;
+    waktu_mulai: Date;
+    waktu_selesai: Date;
+    dokumen?: string;
+    kegiatan?: string;
+}
+
 export interface PengajuanRuanganaTerjadwalRequest {
     gedung: string;
     nim?: string;
     nip?: string;
+    matkul_id?: number;
     ruangan_id: number;
     waktu_mulai: Date;
     waktu_selesai: Date;
