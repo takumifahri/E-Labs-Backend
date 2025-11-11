@@ -254,65 +254,66 @@ const VerifyTokenAndResetPassword = asyncHandler(async (req: Request, res: Respo
     });
 });
 
-// const ChangePassword = asyncHandler(async (req: Request, res: Response) => {
-//     const userPayload = req.user;
-//     const { oldPassword, newPassword, confirmPassword }: UpdatePassword = req.body;
+const ChangePassword = asyncHandler(async (req: Request, res: Response) => {
+    const userPayload = req.user;
+    const { oldPassword, newPassword, confirmPassword }: UpdatePassword = req.body;
 
-//     if (!userPayload) {
-//         throw new AppError("Unauthorized - User not authenticated", 401);
-//     }
+    if (!userPayload) {
+        throw new AppError("Unauthorized - User not authenticated", 401);
+    }
 
-//     if (!oldPassword || !newPassword || !confirmPassword) {
-//         throw new AppError("Old password, new password and confirm password are required", 400);
-//     }
+    if (!oldPassword || !newPassword || !confirmPassword) {
+        throw new AppError("Old password, new password and confirm password are required", 400);
+    }
 
-//     if (newPassword !== confirmPassword) {
-//         throw new AppError("New password and confirm password do not match", 400);
-//     }
+    if (newPassword !== confirmPassword) {
+        throw new AppError("New password and confirm password do not match", 400);
+    }
 
-//     const user = await prisma.user.findUnique({
-//         where: { uniqueId: userPayload.uniqueId }
-//     });
+    const user = await prisma.user.findUnique({
+        where: { uniqueId: userPayload.uniqueId }
+    });
 
-//     if (!user) {
-//         throw new AppError("User not found", 404);
-//     }
+    if (!user) {
+        throw new AppError("User not found", 404);
+    }
 
-//     // Verify old password
-//     const isOldPasswordValid = await verifyPassword(user.password, oldPassword);
+    // Verify old password
+    const isOldPasswordValid = await verifyPassword(user.password, oldPassword);
 
-//     if (!isOldPasswordValid) {
-//         throw new AppError("Old password is incorrect", 400);
-//     }
+    if (!isOldPasswordValid) {
+        throw new AppError("Old password is incorrect", 400);
+    }
 
-//     // Hash new password
-//     const hashedNewPassword = await HashPassword(newPassword);
+    // Hash new password
+    const hashedNewPassword = await HashPassword(newPassword);
 
-//     await prisma.user.update({
-//         where: { uniqueId: userPayload.uniqueId },
-//         data: {
-//             password: hashedNewPassword,
-//             updatedAt: new Date()
-//         }
-//     });
+    await prisma.user.update({
+        where: { uniqueId: userPayload.uniqueId },
+        data: {
+            password: hashedNewPassword,
+            updatedAt: new Date()
+        }
+    });
 
-//     // extract token from Authorization header and add to blacklist if present
-//     const authHeader = req.headers.authorization;
-//     if (authHeader && authHeader.startsWith("Bearer ")) {
-//         const token = authHeader.slice(7);
-//         addToBlacklist(token);
-//     }
+    // extract token from Authorization header and add to blacklist if present
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+        const token = authHeader.slice(7);
+        addToBlacklist(token);
+    }
 
-//     res.status(200).json({
-//         message: "Password changed successfully"
-//     });
-// });
+    res.status(200).json({
+        message: "Password changed successfully"
+    });
+});
 
 const ProfileController = {
     WhoAmI,
     UpdateProfile,
     RequestPasswordReset,
-    VerifyTokenAndResetPassword
+    VerifyTokenAndResetPassword,
+    ChangePassword
 }
 
 export default ProfileController;
