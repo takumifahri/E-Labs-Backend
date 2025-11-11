@@ -13,6 +13,7 @@ authRouter.post('/logout', AuthController.Logout);
 // Protected routes (require authentication)
 authRouter.get('/me', AuthMiddleware.authMiddleware, ProfileController.WhoAmI);
 authRouter.put('/profile', AuthMiddleware.authMiddleware, ProfileController.UpdateProfile);
-authRouter.patch('/change-password', AuthMiddleware.authMiddleware, ProfileController.ChangePassword);
+authRouter.post('/request-password-reset', ProfileController.RequestPasswordReset);
+authRouter.patch('/change-password', ProfileController.VerifyTokenAndResetPassword);
 
 export default authRouter;

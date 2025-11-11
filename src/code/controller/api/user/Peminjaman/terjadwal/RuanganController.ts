@@ -770,7 +770,6 @@ const isRuanganAvailable = asyncHandler(async (req: Request, res: Response, next
     });
   }
 
-
   // Jika ruangan_id tidak diisi, ambil semua ruangan beserta jadwal terpakai
   if (!ruangan_id) {
     const ruangans = await prisma.ruangan.findMany({
@@ -829,40 +828,25 @@ const isRuanganAvailable = asyncHandler(async (req: Request, res: Response, next
   }
 
   try {
-    // Kita cek apakah tanggal dia input sebelum jam saat ini (overlap)
-    const now = new Date();
-    const inputDate = new Date(tanggal);
     const inputStartTime = new Date(jam_mulai);
     const inputEndTime = new Date(jam_selesai);
 
-    // Pakai toISOString untuk membandingkan tanggal dan waktu secara akurat
-    if (
-      inputDate.toISOString() < now.toISOString() ||
-      (inputDate.toDateString() === now.toDateString() && inputStartTime.toISOString() < now.toISOString())
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Tanggal dan jam mulai harus setelah waktu saat ini"
-      });
-    }
-
-
-    // Kita cek jika dia input pada jam 5 pagi dan 6 malam. karena tidak bisa
+    // Validasi jam operasional (6 pagi - 5 sore)
     const startHour = inputStartTime.getHours();
     const endHour = inputEndTime.getHours();
-    // Hanya bisa pinjam antara jam 6 pagi sampai jam 5 sore (tidak termasuk jam 6 pagi dan di atas jam 5 sore)
     if (startHour < 6 || endHour > 17) {
       return res.status(400).json({
         success: false,
         message: "Peminjaman ruangan hanya dapat dilakukan antara jam 6 pagi hingga jam 5 sore"
       });
     }
+
     // Cek ketersediaan ruangan dengan filter status
     const isAvailable = await prisma.peminjaman_Ruangan.findMany({
       where: {
         ruangan_id: ruangan_id,
         tanggal: new Date(tanggal),
-        status: { in: ['DISETUJUI', 'BERLANGSUNG'] }, // Tambahkan filter status
+        status: { in: ['DISETUJUI', 'BERLANGSUNG'] },
         AND: [
           {
             jam_mulai: {
@@ -877,16 +861,19 @@ const isRuanganAvailable = asyncHandler(async (req: Request, res: Response, next
         ]
       }
     });
+
     if (isAvailable.length > 0) {
       return res.status(200).json({
         success: false,
         message: "Ruangan tidak tersedia pada waktu yang dipilih, silahkan ditunggu atau pilih waktu lain"
       });
     }
+
     // Ambil data ruangan
     const ruangan = await prisma.ruangan.findUnique({
       where: { id: ruangan_id }
     });
+
     if (!ruangan) {
       return res.status(404).json({
         success: false,
@@ -920,14 +907,13 @@ const isRuanganAvailable = asyncHandler(async (req: Request, res: Response, next
       }
     });
 
-
     const response: isAvailableRuangan = {
       id: ruangan.id,
       nama_ruangan: ruangan.nama_ruangan,
       kode_ruangan: ruangan.kode_ruangan,
       gedung: ruangan.gedung,
       list_jam_terpakai: jadwalTerpakai.map((j, idx) => ({
-        id: idx, // id diisi dengan index agar mudah diakses
+        id: idx,
         jam_mulai: j.jam_mulai ?? new Date(0),
         jam_selesai: j.jam_selesai ?? new Date(0)
       })),
@@ -942,12 +928,57 @@ const isRuanganAvailable = asyncHandler(async (req: Request, res: Response, next
       data: response
     });
   } catch (error) {
-
     throw new AppError(`Error checking room availability: ${error}`, 500);
   }
-
 });
 
+const getMatkulByNim = asyncHandler(async (req: Request, res: Response) => {
+  const { nim } = req.params;
+
+  // ⿡ Cari mahasiswa berdasarkan NIM
+  const user = await prisma.user.findFirst({
+    where: { NIM: nim },
+    select: {
+      id: true,
+      semester: true,
+      prodiId: true
+    }
+  });
+
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: "Mahasiswa tidak ditemukan"
+    });
+  }
+
+  // ⿢ Cek apakah prodiId dan semester valid
+  if (user.prodiId == null || user.semester == null) {
+    return res.status(400).json({
+      success: false,
+      message: "Data prodi atau semester mahasiswa belum lengkap"
+    });
+  }
+
+  // ⿣ Ambil semua mata kuliah sesuai prodi & semester
+  const matkulList = await prisma.master_Matkul.findMany({
+    where: {
+      prodi_id: user.prodiId,
+      semester: user.semester
+    },
+    select: {
+      id: true,
+      matkul: true,
+      semester: true
+    }
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Daftar mata kuliah ditemukan",
+    data: matkulList
+  });
+});
 const PeminjamanRuanganController = {
   PengajuanPeminjamanRuanganTerjadwal,
   lengkapiPengajuanPeminjamanRuanganTerjadwal,
@@ -958,6 +989,7 @@ const PeminjamanRuanganController = {
   getDetailRuangan,
 
   getListPengajuanRuanganTerjadwal,
-  isRuanganAvailable
+  isRuanganAvailable,
+  getMatkulByNim
 };
 export default PeminjamanRuanganController;
