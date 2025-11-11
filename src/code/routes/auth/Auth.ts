@@ -15,5 +15,6 @@ authRouter.get('/me', AuthMiddleware.authMiddleware, ProfileController.WhoAmI);
 authRouter.put('/profile', AuthMiddleware.authMiddleware, ProfileController.UpdateProfile);
 authRouter.post('/request-password-reset', ProfileController.RequestPasswordReset);
 authRouter.patch('/change-password', ProfileController.VerifyTokenAndResetPassword);
+authRouter.patch('/change-your-password',AuthMiddleware.authMiddleware, ProfileController.ChangePassword);
 
 export default authRouter;
