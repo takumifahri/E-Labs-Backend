@@ -275,21 +275,18 @@ const CreateRuangan = asyncHandler(async (req: Request, res: Response) => {
 });
 
 
-// --- Helper Function ---
-// Fungsi ini akan "menyuntikkan" status PENDING ke data ruangan
-// Dia berjalan SETELAH data diambil (baik dari cache atau DB)
+
 const applyPendingStatus = (ruangan: any, pendingRoomIds: Set<number>) => {
     let finalStatus = ruangan.status;
 
-    // Jika status di DB adalah 'KOSONG' TAPI ID-nya ada di daftar 'PENDING',
-    // ubah statusnya menjadi 'PENDING' untuk frontend.
+
     if (ruangan.status === 'KOSONG' && pendingRoomIds.has(ruangan.id)) {
         finalStatus = 'PENDING';
     }
 
     return {
         ...ruangan,
-        status: finalStatus, // <-- Status yang sudah "pintar"
+        status: finalStatus, 
         QR_Image_url: ruangan.QR_Image ? `ruangan/${ruangan.QR_Image}` : null
     };
 };
@@ -299,24 +296,17 @@ export const GetRuanganMaster = asyncHandler(async (req: Request, res: Response)
     const { gedung, nama_ruangan, kode_ruangan, status } = req.query;
     const filters: any = { gedung, nama_ruangan, kode_ruangan, status };
 
-    // <-- TAMBAHAN: Ambil SEMUA ID ruangan yang PENDING (fresh, setiap saat)
-    // Ini query yang sangat cepat dan ringan.
-    // use generated client model name (matches schema: Peminjaman_Ruangan -> peminjaman_Ruangan)
     const pendingPeminjamans = await prisma.peminjaman_Ruangan.findMany({
         where: { status: StatusPeminjamanRuangan.PENDING },
         select: { ruangan_id: true }
     });
-    // Gunakan Set untuk pencarian cepat (O(1))
+ 
     const pendingRoomIds = new Set(pendingPeminjamans.map(p => p.ruangan_id));
 
-    // --- Caching ---
-    // Cache key tetap sama. Kita akan cache data MENTAH dari `ruangan`.
     const cacheKey = getCacheKey('ruangan:list', filters);
     const cached = getCache(ruanganCache, cacheKey);
 
     if (cached) {
-        // <-- TAMBAHAN: Data ada di cache!
-        // Tetap jalankan logika 'applyPendingStatus' pada data cache
         const dataWithPending = cached.data.map((item: any) => 
             applyPendingStatus(item, pendingRoomIds)
         );
@@ -324,7 +314,7 @@ export const GetRuanganMaster = asyncHandler(async (req: Request, res: Response)
         return res.status(200).json({
             status: "success",
             ...cached,
-            data: dataWithPending, // <-- Kirim data yang sudah di-hydrate
+            data: dataWithPending, 
             cached: true,
             cache_timestamp: new Date().toISOString(),
             cache_hits: ruanganCache.get(cacheKey)?.hits || 0
@@ -334,33 +324,26 @@ export const GetRuanganMaster = asyncHandler(async (req: Request, res: Response)
     // --- Jika tidak ada di Cache ---
     const where = buildWhereClause(filters);
 
-    // <-- MODIFIKASI: Tangani jika frontend filter 'PENDING'
     if (filters.status === 'PENDING') {
-        // Jika user minta 'PENDING', kita cari di DB yang 'KOSONG'
         where.status = StatusRuangan.KOSONG;
-        // Dan kita tambahkan filter ID (hanya yang ada di list pending)
         where.id = {
             in: Array.from(pendingRoomIds)
         };
     } else if (filters.status === 'KOSONG') {
-        // <-- MODIFIKASI: Jika user minta 'KOSONG', pastikan TIDAK 'PENDING'
         where.status = StatusRuangan.KOSONG;
         where.id = {
             notIn: Array.from(pendingRoomIds)
         };
     } else if (filters.status !== undefined) {
-        // query param is string; cast to any so Prisma accepts it at runtime
         where.status = filters.status as any;
     }
 
-    // Ambil semua ruangan dari DB (mentah)
     const ruangans = await prisma.ruangan.findMany({
         where,
         ...optimizedRuanganQuery,
         orderBy: { createdAt: 'asc' }
     });
 
-    // <-- TAMBAHAN: Hydrate data mentah DB dengan status PENDING
     const ruangansWithPending = ruangans.map(r => 
         applyPendingStatus(r, pendingRoomIds)
     );
@@ -368,20 +351,17 @@ export const GetRuanganMaster = asyncHandler(async (req: Request, res: Response)
     const result = {
         status: "success",
         message: "Ruangan retrieved successfully",
-        data: ruangansWithPending, // <-- Kirim data yang sudah di-hydrate
+        data: ruangansWithPending,
         count: ruangansWithPending.length,
         cached: false
     };
 
-    // Cache the result
-    // PENTING: Kita cache data MENTAH (ruangans), BUKAN data yang sudah di-hydrate
-    // Agar cache-nya tetap valid
     setCache(ruanganCache, cacheKey, {
         ...result,
-        data: ruangans // <-- Simpan data asli (mentah)
+        data: ruangans 
     });
 
-    // Background prewarm (tidak berubah)
+  
     if (ruanganCache.size < CACHE_CONFIG.MAX_CACHE_SIZE) {
         setImmediate(() => prewarmRuanganCaches());
     }
