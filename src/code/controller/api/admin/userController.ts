@@ -7,28 +7,57 @@ import { HashPassword } from '../../../utils/hash';
 import { uploadMiddlewares, FileHandler, UploadCategory } from '../../../utils/FileHandler';
 import { transporter } from '../../../utils/Mail.config';
 const prisma = new PrismaClient();
-
 const CreateUser = asyncHandler(async (req: express.Request, res: express.Response) => {
-    const { nama, email, password, roleId }: CreateUserRequest = req.body;
+    const { nama, email, password, NIM, semester, NIP, roleId }: CreateUserRequest = req.body;
 
     if (!nama || !email || !password) {
         throw new AppError("Name, email, and password are required", 400);
     }
 
+    // Check if email already exists
+    const existingUser = await prisma.user.findUnique({
+        where: { email }
+    });
+
+    if (existingUser) {
+        throw new AppError("Email already exists", 400);
+    }
+
     const uniqueId = `USR-${uuidv4()}`;
     const hashedPassword = await HashPassword(password);
 
+    // Handle file upload (profil) - nullable
+    let profilFilename: string | null = null;
+    if (req.file) {
+        profilFilename = req.file.filename;
+        console.log(`📸 Profile image uploaded: ${profilFilename}`);
+    }
+
+    // Build data object with optional profil field
+    const userData: any = {
+        uniqueId,
+        nama,
+        email,
+        password: hashedPassword,
+        roleId: roleId || 1,
+        createdAt: new Date(),
+    };
+
+    // Add optional fields only if they exist
+    if (NIM) userData.NIM = NIM;
+    if (semester) userData.semester = semester;
+    if (NIP) userData.NIP = NIP;
+    if (profilFilename) userData.profil = profilFilename;
+
     const addUser = await prisma.user.create({
-        data: {
-            uniqueId,
-            nama,
-            email,
-            password: hashedPassword,
-            roleId: roleId || 1,
-            createdAt: new Date(),
-        },
+        data: userData,
         include: { role: true }
     });
+
+    // Generate profil URL if file was uploaded
+    const profilUrl = profilFilename
+        ? FileHandler.getFileUrl(UploadCategory.PROFILE, profilFilename)
+        : undefined;
 
     return res.status(201).json({
         message: "User created successfully",
@@ -36,11 +65,20 @@ const CreateUser = asyncHandler(async (req: express.Request, res: express.Respon
             uniqueId: addUser.uniqueId,
             nama: addUser.nama,
             email: addUser.email,
+            profil: addUser.profil ?? undefined,
+            profilUrl,
             role: addUser.role,
             createdAt: addUser.createdAt
-        }
+        },
+        file_info: req.file ? {
+            original_name: req.file.originalname,
+            filename: profilFilename,
+            size: req.file.size,
+            mime_type: req.file.mimetype
+        } : null
     });
 });
+
 const getUserById = asyncHandler(async (req: express.Request, res: express.Response) => {
     const { uniqueId } = req.params;
 
