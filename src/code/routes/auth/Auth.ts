@@ -13,8 +13,13 @@ authRouter.post('/logout', AuthController.Logout);
 // Protected routes (require authentication)
 authRouter.get('/me', AuthMiddleware.authMiddleware, ProfileController.WhoAmI);
 authRouter.put('/profile', AuthMiddleware.authMiddleware, ProfileController.UpdateProfile);
+
+// Password reset (lupa password - tanpa login)
 authRouter.post('/request-password-reset', ProfileController.RequestPasswordReset);
-authRouter.patch('/change-password', ProfileController.VerifyTokenAndResetPassword);
-authRouter.patch('/change-your-password',AuthMiddleware.authMiddleware, ProfileController.ChangePassword);
+authRouter.post('/verify-otp', ProfileController.VerifyOTP);
+authRouter.post('/reset-password', ProfileController.ResetPassword);
+
+// Change password (sudah login - butuh password lama)
+authRouter.patch('/change-password', AuthMiddleware.authMiddleware, ProfileController.ChangePassword);
 
 export default authRouter;

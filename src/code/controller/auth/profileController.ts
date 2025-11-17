@@ -151,14 +151,15 @@ const RequestPasswordReset = asyncHandler(async (req: Request, res: Response) =>
     }
 
     // Generate random token
-    const token = crypto.randomBytes(32).toString("hex");
+    // const token = crypto.randomBytes(32).toString("hex");
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes from now
 
     // Save token and expiry to user
     await prisma.user.update({
         where: { email: email },
         data: {
-            resetPasswordToken: token,
+            resetPasswordToken: otpCode,
             resetPasswordExpires: expiresAt
         }
     });
@@ -174,7 +175,7 @@ const RequestPasswordReset = asyncHandler(async (req: Request, res: Response) =>
                 <p>You requested a password reset for your account.</p>
                 <p>Use the following token to reset your password:</p>
                 <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
-                    <strong style="font-size: 18px; letter-spacing: 2px;">${token}</strong>
+                    <strong style="font-size: 18px; letter-spacing: 2px;">${otpCode}</strong>
                 </div>
                 <p><strong>This token will expire in 15 minutes.</strong></p>
                 <p>If you did not request this password reset, please ignore this email.</p>
@@ -189,74 +190,152 @@ const RequestPasswordReset = asyncHandler(async (req: Request, res: Response) =>
 });
 
 // Function untuk verify token dan reset password
-const VerifyTokenAndResetPassword = asyncHandler(async (req: Request, res: Response) => {
-    const { email, token, newPassword, confirmPassword } = req.body;
+// const VerifyTokenAndResetPassword = asyncHandler(async (req: Request, res: Response) => {
+//     const { email, token, newPassword, confirmPassword } = req.body;
 
-    // Validasi input
-    if (!email || !token || !newPassword || !confirmPassword) {
-        throw new AppError("Email, token, new password, and confirm password are required", 400);
+//     // Validasi input
+//     if (!email || !token || !newPassword || !confirmPassword) {
+//         throw new AppError("Email, token, new password, and confirm password are required", 400);
+//     }
+
+//     if (newPassword !== confirmPassword) {
+//         throw new AppError("New password and confirm password do not match", 400);
+//     }
+
+//     // Validasi panjang password
+//     if (newPassword.length < 6) {
+//         throw new AppError("Password must be at least 6 characters long", 400);
+//     }
+
+//     // Cari user dengan email dan token yang valid
+//     const user = await prisma.user.findUnique({
+//         where: { email: email }
+//     });
+
+//     if (!user) {
+//         throw new AppError("User not found", 404);
+//     }
+
+//     // Verifikasi token
+//     if (user.resetPasswordToken !== token) {
+//         throw new AppError("Invalid token", 400);
+//     }
+
+//     // Cek apakah token sudah expired
+//     if (!user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+//         throw new AppError("Token has expired", 400);
+//     }
+
+//     // Hash password baru
+//     const hashedNewPassword = await HashPassword(newPassword);
+
+//     // Update password dan hapus token
+//     await prisma.user.update({
+//         where: { email: email },
+//         data: {
+//             password: hashedNewPassword,
+//             resetPasswordToken: null,
+//             resetPasswordExpires: null,
+//             updatedAt: new Date()
+//         }
+//     });
+//     // extract token from Authorization header and add to blacklist if present
+//     const authHeader = req.headers.authorization;
+//     if (authHeader && authHeader.startsWith("Bearer ")) {
+//         const token = authHeader.slice(7);
+//         addToBlacklist(token);
+//     }
+
+//     res.status(200).json({
+//         message: "Password reset successfully",
+//         user: {
+//             email: user.email,
+//             name: user.nama
+//         }
+//     });
+// });
+
+const VerifyOTP = asyncHandler(async (req: Request, res: Response) => {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+        throw new AppError("Email and OTP are required", 400);
     }
 
-    if (newPassword !== confirmPassword) {
-        throw new AppError("New password and confirm password do not match", 400);
-    }
-
-    // Validasi panjang password
-    if (newPassword.length < 6) {
-        throw new AppError("Password must be at least 6 characters long", 400);
-    }
-
-    // Cari user dengan email dan token yang valid
     const user = await prisma.user.findUnique({
-        where: { email: email }
+        where: { email }
     });
 
     if (!user) {
         throw new AppError("User not found", 404);
     }
 
-    // Verifikasi token
-    if (user.resetPasswordToken !== token) {
-        throw new AppError("Invalid token", 400);
+    // Cek OTP
+    if (user.resetPasswordToken !== otp) {
+        throw new AppError("Invalid OTP", 400);
     }
 
-    // Cek apakah token sudah expired
+    // Cek expired
     if (!user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
-        throw new AppError("Token has expired", 400);
-    }
-
-    // Hash password baru
-    const hashedNewPassword = await HashPassword(newPassword);
-
-    // Update password dan hapus token
-    await prisma.user.update({
-        where: { email: email },
-        data: {
-            password: hashedNewPassword,
-            resetPasswordToken: null,
-            resetPasswordExpires: null,
-            updatedAt: new Date()
-        }
-    });
-    // extract token from Authorization header and add to blacklist if present
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-        const token = authHeader.slice(7);
-        addToBlacklist(token);
+        throw new AppError("OTP has expired", 400);
     }
 
     res.status(200).json({
-        message: "Password reset successfully",
-        user: {
-            email: user.email,
-            name: user.nama
-        }
+        message: "OTP is valid",
     });
 });
 
+const ResetPassword = asyncHandler(async (req: Request, res: Response) => {
+    const { email, otp, newPassword, confirmPassword } = req.body;
+
+    if (!email || !otp || !newPassword || !confirmPassword) {
+        throw new AppError("Email, OTP, new password, and confirm password are required", 400);
+    }
+
+    if (newPassword !== confirmPassword) {
+        throw new AppError("Passwords do not match", 400);
+    }
+
+    const user = await prisma.user.findUnique({
+        where: { email }
+    });
+
+    if (!user) {
+        throw new AppError("User not found", 404);
+    }
+
+    // Validasi OTP
+    if (user.resetPasswordToken !== otp) {
+        throw new AppError("Invalid OTP", 400);
+    }
+
+    // Cek expired
+    if (!user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+        throw new AppError("OTP has expired", 400);
+    }
+
+    // Hash password baru
+    const hashed = await HashPassword(newPassword);
+
+    await prisma.user.update({
+        where: { email },
+        data: {
+            password: hashed,
+            resetPasswordToken: null,
+            resetPasswordExpires: null,
+        }
+    });
+
+    res.status(200).json({
+        message: "Password reset successfully"
+    });
+});
+
+
+
 const ChangePassword = asyncHandler(async (req: Request, res: Response) => {
     const userPayload = req.user;
-    const { oldPassword, newPassword, confirmPassword }: UpdatePassword = req.body;
+    const { oldPassword, newPassword, confirmPassword } = req.body as UpdatePassword;
 
     if (!userPayload) {
         throw new AppError("Unauthorized - User not authenticated", 401);
@@ -312,7 +391,8 @@ const ProfileController = {
     WhoAmI,
     UpdateProfile,
     RequestPasswordReset,
-    VerifyTokenAndResetPassword,
+    VerifyOTP,
+    ResetPassword,
     ChangePassword
 }
 

@@ -28,5 +28,6 @@ PeminjamanRouter.get("/ruangan/terjadwal/list", PeminjamanRuanganController.getL
 PeminjamanRouter.get("/ruangan/list", PeminjamanRuanganController.getAllRuangan);
 PeminjamanRouter.get("/ruangan/:id", PeminjamanRuanganController.getDetailRuangan);
 PeminjamanRouter.post("/ruangan/peminjaman/aktivasi/:id", PeminjamanRuanganController.aktivasiPeminjamanRuanganTerjadwal);
-PeminjamanRouter.get("/ruangan/matkul/:nim", PeminjamanRuanganController.getMatkulByNim)
+
+PeminjamanRouter.get("/ruangan/matkul/:nim", PeminjamanRuanganController.getMatkulByNim);
 export default PeminjamanRouter;
