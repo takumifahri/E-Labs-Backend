@@ -486,7 +486,27 @@ const getMatkulByNim = asyncHandler(async (req: Request, res: Response) => {
 
 export const lengkapiPengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   const { id } = req.params;
-  const { matkul_id, waktu_mulai, waktu_selesai, dokumen, kegiatan }: LengkapiDataPengajuanRuanganRequest = req.body;
+  
+  // Parse data dari FormData (semua value jadi string)
+  const matkul_id = req.body.matkul_id ? parseInt(req.body.matkul_id) : undefined;
+  const jam_mulai = req.body.jam_mulai;
+  const jam_selesai = req.body.jam_selesai;
+  const dokumen = req.file ? req.file.path : req.body.dokumen;
+  const kegiatan = req.body.kegiatan;
+
+  // Debug logging
+  console.log('📝 Lengkapi Peminjaman Ruangan - Received data:', {
+    id,
+    body: req.body,
+    file: req.file,
+    parsed: {
+      matkul_id,
+      jam_mulai,
+      jam_selesai,
+      dokumen,
+      kegiatan
+    }
+  });
 
   try {
     const peminjamanRuangan = await prisma.peminjaman_Ruangan.findUnique({
@@ -511,6 +531,13 @@ export const lengkapiPengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (r
       return res.status(400).json({
         success: false,
         message: "matkul_id harus disertakan untuk melengkapi pengajuan peminjaman ruangan terjadwal"
+      });
+    }
+
+    if (!jam_mulai || !jam_selesai) {
+      return res.status(400).json({
+        success: false,
+        message: "jam_mulai dan jam_selesai harus disertakan"
       });
     }
 
@@ -547,12 +574,12 @@ export const lengkapiPengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (r
 
     // Prevent overlapping bookings at the same time
     const tanggal = peminjamanRuangan.tanggal ? peminjamanRuangan.tanggal.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-    const waktuMulaiBaru = new Date(waktu_mulai);
-    const waktuSelesaiBaru = new Date(waktu_selesai);
+    const waktuMulaiBaru = new Date(jam_mulai);
+    const waktuSelesaiBaru = new Date(jam_selesai);
 
     // Prevent jika dia ngajuin di atas jam 17 dan di bawah jam 6
-    const startHour = new Date(waktu_mulai).getHours();
-    const endHour = new Date(waktu_selesai).getHours();
+    const startHour = new Date(jam_mulai).getHours();
+    const endHour = new Date(jam_selesai).getHours();
     if (startHour < 6 || endHour > 17) {
       return res.status(400).json({
         success: false,
@@ -625,8 +652,8 @@ export const lengkapiPengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (r
         matkul_id: matkul_id || null, // <-- saya ganti matkul.id jadi matkul_id
         tanggal: new Date(tanggal),
         status: StatusPeminjamanRuangan.DIAJUKAN,
-        jam_mulai: waktu_mulai,
-        jam_selesai: waktu_selesai,
+        jam_mulai: new Date(jam_mulai),
+        jam_selesai: new Date(jam_selesai),
         dokumen: dokumen || null,
         kegiatan: kegiatan || 'Kuliah'
       }
@@ -1129,6 +1156,7 @@ const isRuanganAvailable = asyncHandler(async (req: Request, res: Response, next
         jam_selesai: true
       }
     });
+
 
     const response: isAvailableRuangan = {
       id: ruangan.id,
