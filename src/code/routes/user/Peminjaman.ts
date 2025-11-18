@@ -7,6 +7,7 @@ import PeminjamanRuanganController from "../../controller/api/user/Peminjaman/te
 
 const PeminjamanRouter = Router();
 const PeminjamanUpload = FileHandler.createUploadMiddleware(UploadCategory.PEMINJAMAN_ITEM, 'document', 'barang', 1, 'Dokumen');
+const PeminjamanRuanganUpload = FileHandler.createUploadMiddleware(UploadCategory.PEMINJAMAN_RUANGAN, 'document', 'doc', 1, 'dokumen');
 
 // Grouping route
 // Peminjaman item
@@ -20,7 +21,7 @@ PeminjamanRouter.post("/barang/ajuan-tidak-terjadwal", PeminajmanItemTidakTerJad
 // Peminjaman ruangan
 // Peminjaman ruangan tidak perlu login
 PeminjamanRouter.post("/ruangan/terjadwal", PeminjamanRuanganController.PengajuanPeminjamanRuanganTerjadwal);
-PeminjamanRouter.patch("/ruangan/terjadwal/lengkapi/:id", PeminjamanUpload,  PeminjamanRuanganController.lengkapiPengajuanPeminjamanRuanganTerjadwal);
+PeminjamanRouter.patch("/ruangan/terjadwal/lengkapi/:id", PeminjamanRuanganUpload,  PeminjamanRuanganController.lengkapiPengajuanPeminjamanRuanganTerjadwal);
 // list pengajuan untuk transparansi
 PeminjamanRouter.get("/ruangan/terjadwal/list", PeminjamanRuanganController.getListPengajuanRuanganTerjadwal);
 
@@ -28,5 +29,6 @@ PeminjamanRouter.get("/ruangan/terjadwal/list", PeminjamanRuanganController.getL
 PeminjamanRouter.get("/ruangan/list", PeminjamanRuanganController.getAllRuangan);
 PeminjamanRouter.get("/ruangan/:id", PeminjamanRuanganController.getDetailRuangan);
 PeminjamanRouter.post("/ruangan/peminjaman/aktivasi/:id", PeminjamanRuanganController.aktivasiPeminjamanRuanganTerjadwal);
-PeminjamanRouter.get("/ruangan/matkul/:nim", PeminjamanRuanganController.getMatkulByNim)
+
+PeminjamanRouter.get("/ruangan/matkul/:nim", PeminjamanRuanganController.getMatkulByNim);
 export default PeminjamanRouter;

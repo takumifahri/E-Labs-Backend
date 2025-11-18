@@ -70,6 +70,7 @@ const Register = asyncHandler(async (req: express.Request, res: express.Response
         data: responseRegist
     });
 });
+
 const Login = asyncHandler(async (req: express.Request, res: express.Response) => {
     const { email, password }: LoginRequest = req.body;
 

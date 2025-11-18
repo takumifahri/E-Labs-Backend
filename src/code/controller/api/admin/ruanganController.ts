@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { CreateRuanganRequest, UpdateRuanganRequest } from "../../../models/Ruangan";
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, StatusPeminjamanRuangan, StatusRuangan } from '@prisma/client';
 import { AppError, asyncHandler } from '../../../middleware/error';
 import QRCode from "qrcode";
 import { FileHandler, UploadCategory } from '../../../utils/FileHandler'; // sesuaikan path
@@ -389,120 +389,92 @@ const getRuanganWithJadwal = asyncHandler(async(req: Request, res: Response) => 
     return res.status(200).json(result);
 });
 
-const GetRuanganMaster = asyncHandler(async (req: Request, res: Response) => {
-    const { gedung, nama_ruangan, kode_ruangan, status, tanggal } = req.query;
-    const filters: any = { gedung, nama_ruangan, kode_ruangan, status, tanggal };
-    if (status !== undefined) filters.status = status;
+const applyPendingStatus = (ruangan: any, pendingRoomIds: Set<number>) => {
+    let finalStatus = ruangan.status;
+
+
+    if (ruangan.status === 'KOSONG' && pendingRoomIds.has(ruangan.id)) {
+        finalStatus = 'PENDING';
+    }
+
+    return {
+        ...ruangan,
+        status: finalStatus, 
+        QR_Image_url: ruangan.QR_Image ? `ruangan/${ruangan.QR_Image}` : null
+        
+    };
+};
+
+export const GetRuanganMaster = asyncHandler(async (req: Request, res: Response) => {
+    const { gedung, nama_ruangan, kode_ruangan, status } = req.query;
+    const filters: any = { gedung, nama_ruangan, kode_ruangan, status };
+
+    const pendingPeminjamans = await prisma.peminjaman_Ruangan.findMany({
+        where: { status: StatusPeminjamanRuangan.PENDING },
+        select: { ruangan_id: true }
+    });
+ 
+    const pendingRoomIds = new Set(pendingPeminjamans.map(p => p.ruangan_id));
 
     const cacheKey = getCacheKey('ruangan:list', filters);
-
-    // Try cache first
     const cached = getCache(ruanganCache, cacheKey);
+
     if (cached) {
-        // Add QR_Image URL for each ruangan (already has list_jam_terpakai)
-        const dataWithUrls = cached.data.map((item: any) => ({
-            ...item,
-            QR_Image_url: item.QR_Image ? `ruangan/${item.QR_Image}` : null
-        }));
+        const dataWithPending = cached.data.map((item: any) => 
+            applyPendingStatus(item, pendingRoomIds)
+        );
 
         return res.status(200).json({
             status: "success",
             ...cached,
-            data: dataWithUrls,
+            data: dataWithPending, 
             cached: true,
             cache_timestamp: new Date().toISOString(),
             cache_hits: ruanganCache.get(cacheKey)?.hits || 0
         });
     }
 
-    // Build where clause with status filter
+    // --- Jika tidak ada di Cache ---
     const where = buildWhereClause(filters);
 
-    if (filters.status !== undefined) {
-        where.status = filters.status;
+    if (filters.status === 'PENDING') {
+        where.status = StatusRuangan.KOSONG;
+        where.id = {
+            in: Array.from(pendingRoomIds)
+        };
+    } else if (filters.status === 'KOSONG') {
+        where.status = StatusRuangan.KOSONG;
+        where.id = {
+            notIn: Array.from(pendingRoomIds)
+        };
+    } else if (filters.status !== undefined) {
+        where.status = filters.status as any;
     }
 
-    // Ambil semua ruangan tanpa pagination
     const ruangans = await prisma.ruangan.findMany({
         where,
         ...optimizedRuanganQuery,
         orderBy: { createdAt: 'asc' }
     });
 
-    // Tentukan tanggal untuk filter jadwal (default: hari ini)
-    const targetDate = tanggal ? new Date(tanggal as string) : new Date();
-    const dateStr = targetDate.toISOString().split('T')[0];
-
-    // Ambil jadwal terpakai untuk semua ruangan di tanggal yang dipilih
-    const jadwalTerpakai = await prisma.peminjaman_Ruangan.findMany({
-        where: {
-            ruangan_id: { in: ruangans.map(r => r.id) },
-            status: { in: ['DISETUJUI', 'BERLANGSUNG'] },
-            OR: [
-                {
-                    jam_mulai: {
-                        gte: new Date(dateStr + "T00:00:00.000Z"),
-                        lte: new Date(dateStr + "T23:59:59.999Z")
-                    }
-                },
-                {
-                    jam_selesai: {
-                        gte: new Date(dateStr + "T00:00:00.000Z"),
-                        lte: new Date(dateStr + "T23:59:59.999Z")
-                    }
-                }
-            ]
-        },
-        select: {
-            ruangan_id: true,
-            jam_mulai: true,
-            jam_selesai: true
-        },
-        orderBy: { jam_mulai: 'asc' }
-    });
-
-    // Tambahkan list_jam_terpakai pada setiap ruangan (format sama dengan isRuanganAvailable)
-    const ruangansWithJadwal = ruangans.map(r => ({
-        id: r.id,
-        gedung: r.gedung,
-        nama_ruangan: r.nama_ruangan,
-        kode_ruangan: r.kode_ruangan,
-        status: r.status,
-        QR_Image: r.QR_Image,
-        list_jam_terpakai: jadwalTerpakai
-            .filter(j => j.ruangan_id === r.id)
-            .map((j, idx) => ({
-                id: idx,
-                jam_mulai: j.jam_mulai ?? new Date(0),
-                jam_selesai: j.jam_selesai ?? new Date(0)
-            })),
-        createdAt: r.createdAt,
-        updatedAt: r.updatedAt,
-        deletedAt: r.deletedAt
-    }));
-
-    // Tambahkan QR_Image_url untuk response
-    const ruangansWithUrls = ruangansWithJadwal.map(r => ({
-        ...r,
-        QR_Image_url: r.QR_Image ? `ruangan/${r.QR_Image}` : null
-    }));
+    const ruangansWithPending = ruangans.map(r => 
+        applyPendingStatus(r, pendingRoomIds)
+    );
 
     const result = {
         status: "success",
         message: "Ruangan retrieved successfully",
-        data: ruangansWithUrls,
-        count: ruangansWithUrls.length,
-        filter_tanggal: dateStr,
+        data: ruangansWithPending,
+        count: ruangansWithPending.length,
         cached: false
     };
 
-    // Cache the result WITH list_jam_terpakai (without QR_Image_url)
     setCache(ruanganCache, cacheKey, {
         ...result,
-        data: ruangansWithJadwal // Cache dengan list_jam_terpakai
+        data: ruangans 
     });
 
-    // Background prewarm if cache is not full
+  
     if (ruanganCache.size < CACHE_CONFIG.MAX_CACHE_SIZE) {
         setImmediate(() => prewarmRuanganCaches());
     }
@@ -977,6 +949,53 @@ const WarmRuanganCache = asyncHandler(async (req: Request, res: Response) => {
     });
 });
 
+//TAMBAHAN UNTUK CANCEL PEMINJAMAN RUANGAN YAAAA ANJINGGGGGG
+const UpdateRuanganCancle = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params; // Ini ID Peminjaman (53)
+
+    if (!id || isNaN(parseInt(id))) {
+        throw new AppError("Valid peminjaman ID is required", 400);
+    }
+
+    // 1. Cari data PEMINJAMAN dari tabel peminjaman_Ruangan
+    const existingBooking = await prisma.peminjaman_Ruangan.findFirst({
+        where: { id: parseInt(id) },
+        select: { id: true, ruangan_id: true, status: true }
+    });
+
+    if (!existingBooking) {
+        throw new AppError("Peminjaman not found", 404);
+    }
+
+    // 2. Update status PEMINJAMAN jadi DIBATALKAN / DITOLAK
+    const updatedBooking = await prisma.peminjaman_Ruangan.update({
+        where: { id: parseInt(id) },
+        data: {
+            status: StatusPeminjamanRuangan.DIBATALKAN
+        }
+    });
+
+    // 3. (Opsional) Jika peminjaman ini tadinya statusnya DISETUJUI/DIPAKAI, 
+    // maka Ruangannya harus dikembalikan jadi KOSONG.
+    // Asumsi: Kita paksa ruangan terkait jadi KOSONG untuk aman-nya.
+    if (existingBooking.ruangan_id) {
+        await prisma.ruangan.update({
+            where: { id: existingBooking.ruangan_id },
+            data: { status: StatusRuangan.KOSONG }
+        });
+    }
+
+    // Clear related caches and prewarm
+    clearAllRuanganCaches();
+    setImmediate(() => prewarmRuanganCaches());
+
+    return res.status(200).json({
+        message: "Peminjaman cancelled successfully",
+        data: updatedBooking
+    });
+});
+
+
 const RuanganController = {
     CreateRuangan,
     GetRuanganMaster,
@@ -985,6 +1004,7 @@ const RuanganController = {
     DeleteRuangan,
     RestoreRuangan,
     GetGedungList,
+    UpdateRuanganCancle,
     
     GetRuanganStats,
     GetRuanganCacheStats,
