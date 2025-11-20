@@ -28,7 +28,7 @@ export interface LoginRequest {
 
 export interface LoginResponse {
     uniqueId: string;
-    email: string;
+    email?: string | null;
     nama: string;
     roles: Role[keyof Role];
     semester?: number;

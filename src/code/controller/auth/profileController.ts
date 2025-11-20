@@ -51,7 +51,7 @@ const WhoAmI = asyncHandler(async (req: Request, res: Response) => {
         roleId: userData.roleId,
         semester: userData.semester || undefined,
         profil: userData.profil || undefined,
-        email: userData.email,
+        email: userData.email || "",
         nama: userData.nama,
         NIM: userData.NIM || undefined,
         NIP: userData.NIP || undefined,
@@ -118,7 +118,7 @@ const UpdateProfile = asyncHandler(async (req: Request, res: Response) => {
         roleId: updatedUser.roleId,
         semester: updatedUser.semester || undefined,
         profil: updatedUser.profil || undefined,
-        email: updatedUser.email,
+        email: updatedUser.email || "",
         nama: updatedUser.nama,
         NIM: updatedUser.NIM || undefined,
         NIP: updatedUser.NIP || undefined,
@@ -167,7 +167,7 @@ const RequestPasswordReset = asyncHandler(async (req: Request, res: Response) =>
     // Send email with token (bukan link, hanya token)
     await transporter.sendMail({
         from: '"Admin E-Labs+" <support@yourdomain.com>',
-        to: user.email,
+        to: user.email ?? "",
         subject: "Password Reset Token",
         html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

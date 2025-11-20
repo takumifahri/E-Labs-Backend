@@ -101,27 +101,27 @@ const getDetailRuangan = asyncHandler(async (req: Request, res: Response, next: 
 });
 
 export const PengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    const { nim, ruangan_id }: PengajuanPeminjamanRuanganBaseRequest = req.body;
+  const { nim, ruangan_id }: PengajuanPeminjamanRuanganBaseRequest = req.body;
 
-    try {
-        // --- Bagian 1: Validasi User ---
-        let user_id;
-        const user = await prisma.user.findFirst({
-            where: { NIM: nim }
-        });
+  try {
+    // --- Bagian 1: Validasi User ---
+    let user_id;
+    const user = await prisma.user.findFirst({
+      where: { NIM: nim }
+    });
 
-        if (user) {
-            user_id = user.id;
-        }
+    if (user) {
+      user_id = user.id;
+    }
 
-        if (typeof user_id !== "number") {
-            return res.status(400).json({
-                success: false,
-                message: "User dengan NIM tersebut tidak ditemukan"
-            });
-        }
+    if (typeof user_id !== "number") {
+      return res.status(400).json({
+        success: false,
+        message: "User dengan NIM tersebut tidak ditemukan"
+      });
+    }
 
-     const checkUser = await prisma.user.findUnique({
+    const checkUser = await prisma.user.findUnique({
 
       where: {
 
@@ -141,98 +141,98 @@ export const PengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Requ
 
       });
 
-    } 
-
-        // --- Bagian 2: Validasi Ruangan ---
-        const getRuangan = await prisma.ruangan.findUnique({
-            where: { id: ruangan_id }
-        });
-
-        if (!getRuangan) {
-            return res.status(404).json({
-                success: false,
-                message: "Ruangan tidak ditemukan"
-            });
-        }
-
-        // --- Bagian 3: Logika Pengecekan Status ---
-
-        // CEK 1: Apakah status ruangan di DB sudah 'DIAJUKAN'?
-        if (getRuangan.status === StatusRuangan.DIAJUKAN) {
-            return res.status(409).json({
-                success: false,
-                message: "Ruangan ini sudah diajukan atau dipinjam."
-            });
-        }
-
-        // CEK 2: Apakah ada record 'PENDING' untuk RUANGAN INI?
-        const pendingBooking = await prisma.peminjaman_Ruangan.findFirst({
-            where: {
-                ruangan_id: ruangan_id,
-                status: StatusPeminjamanRuangan.PENDING
-            }
-        });
-
-        // Jika ADA record PENDING untuk ruangan ini...
-        if (pendingBooking) {
-            // CEK 3: Apakah user_id-nya SAMA?
-            if (pendingBooking.user_id === user_id) {
-                // --- Skenario 1: RESUME BOOKING (NIM Cocok) ---
-                return res.status(200).json({
-                    success: true,
-                    message: "Booking pending ditemukan. Silakan lanjutkan.",
-                    data: pendingBooking
-                });
-            } else {
-                // --- Skenario 2: BOOKING DITOLAK (NIM Beda) ---
-                return res.status(403).json({
-                    success: false,
-                    message: "Ruangan ini sedang dalam proses booking oleh NIM lain."
-                });
-            }
-        }
-
-        // CEK 4: Cek apakah user sudah punya booking PENDING di ruangan LAIN
-        const existingPendingForUser = await prisma.peminjaman_Ruangan.findFirst({
-            where: {
-                user_id: user_id,
-                status: StatusPeminjamanRuangan.PENDING
-                // Tidak perlu filter 'NOT ruangan_id' karena sudah dicek di CEK 2
-            },
-            include: {
-                ruangan: {
-                    select: { nama_ruangan: true }
-                }
-            }
-        });
-
-        if (existingPendingForUser) {
-            const roomName = existingPendingForUser.ruangan?.nama_ruangan || 'lain';
-            return res.status(409).json({
-                success: false,
-                message: `Anda masih memiliki booking tertunda di ruangan ${roomName}. Harap selesaikan terlebih dahulu.`
-            });
-        }
-
-        // --- Skenario 3: BOOKING BARU ---
-        // Lolos semua cek, buat booking baru
-        const pengajuanBaru = await prisma.peminjaman_Ruangan.create({
-            data: {
-                ruangan_id: getRuangan.id,
-                user_id: user_id,
-                status: StatusPeminjamanRuangan.PENDING,
-            }
-        });
-
-        res.status(201).json({
-            success: true,
-            message: "Pengajuan berhasil dibuat, silakan lengkapi data.",
-            data: pengajuanBaru
-        });
-
-    } catch (error) {
-        next(error);
     }
+
+    // --- Bagian 2: Validasi Ruangan ---
+    const getRuangan = await prisma.ruangan.findUnique({
+      where: { id: ruangan_id }
+    });
+
+    if (!getRuangan) {
+      return res.status(404).json({
+        success: false,
+        message: "Ruangan tidak ditemukan"
+      });
+    }
+
+    // --- Bagian 3: Logika Pengecekan Status ---
+
+    // CEK 1: Apakah status ruangan di DB sudah 'DIAJUKAN'?
+    if (getRuangan.status === StatusRuangan.DIAJUKAN) {
+      return res.status(409).json({
+        success: false,
+        message: "Ruangan ini sudah diajukan atau dipinjam."
+      });
+    }
+
+    // CEK 2: Apakah ada record 'PENDING' untuk RUANGAN INI?
+    const pendingBooking = await prisma.peminjaman_Ruangan.findFirst({
+      where: {
+        ruangan_id: ruangan_id,
+        status: StatusPeminjamanRuangan.PENDING
+      }
+    });
+
+    // Jika ADA record PENDING untuk ruangan ini...
+    if (pendingBooking) {
+      // CEK 3: Apakah user_id-nya SAMA?
+      if (pendingBooking.user_id === user_id) {
+        // --- Skenario 1: RESUME BOOKING (NIM Cocok) ---
+        return res.status(200).json({
+          success: true,
+          message: "Booking pending ditemukan. Silakan lanjutkan.",
+          data: pendingBooking
+        });
+      } else {
+        // --- Skenario 2: BOOKING DITOLAK (NIM Beda) ---
+        return res.status(403).json({
+          success: false,
+          message: "Ruangan ini sedang dalam proses booking oleh NIM lain."
+        });
+      }
+    }
+
+    // CEK 4: Cek apakah user sudah punya booking PENDING di ruangan LAIN
+    const existingPendingForUser = await prisma.peminjaman_Ruangan.findFirst({
+      where: {
+        user_id: user_id,
+        status: StatusPeminjamanRuangan.PENDING
+        // Tidak perlu filter 'NOT ruangan_id' karena sudah dicek di CEK 2
+      },
+      include: {
+        ruangan: {
+          select: { nama_ruangan: true }
+        }
+      }
+    });
+
+    if (existingPendingForUser) {
+      const roomName = existingPendingForUser.ruangan?.nama_ruangan || 'lain';
+      return res.status(409).json({
+        success: false,
+        message: `Anda masih memiliki booking tertunda di ruangan ${roomName}. Harap selesaikan terlebih dahulu.`
+      });
+    }
+
+    // --- Skenario 3: BOOKING BARU ---
+    // Lolos semua cek, buat booking baru
+    const pengajuanBaru = await prisma.peminjaman_Ruangan.create({
+      data: {
+        ruangan_id: getRuangan.id,
+        user_id: user_id,
+        status: StatusPeminjamanRuangan.PENDING,
+      }
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Pengajuan berhasil dibuat, silakan lengkapi data.",
+      data: pengajuanBaru
+    });
+
+  } catch (error) {
+    next(error);
+  }
 });
 
 const getMatkulByNim = asyncHandler(async (req: Request, res: Response) => {
@@ -486,7 +486,7 @@ const getMatkulByNim = asyncHandler(async (req: Request, res: Response) => {
 
 export const lengkapiPengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   const { id } = req.params;
-  
+
   // Parse data dari FormData (semua value jadi string)
   const matkul_id = req.body.matkul_id ? parseInt(req.body.matkul_id) : undefined;
   const jam_mulai = req.body.jam_mulai;
@@ -659,16 +659,27 @@ export const lengkapiPengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (r
       }
     });
 
+    // Fetch ruangan data for logging
+    const ruanganForLog = await prisma.ruangan.findUnique({
+      where: { id: peminjamanRuangan.ruangan_id }
+    });
+
+    await logActivity({
+      user_id: peminjamanRuangan.user_id,
+      pesan: `User (${user.NIM ?? ""}) mengajukan ruangan (${peminjamanRuangan.ruangan_id}) dengan kode ${ruanganForLog?.kode_ruangan ?? ""}, nama ${ruanganForLog?.nama_ruangan ?? ""}, gedung ${ruanganForLog?.gedung ?? ""}`,
+      aksi: 'PENGAJUAN RUANGAN',
+      tabel_terkait: 'Peminjaman_Ruangan'
+    });
     // --- TAMBAHAN PENTING (LANGKAH 2) ---
     // Sekarang, update juga tabel 'ruangan'
     await prisma.ruangan.update({
-        where: {
-            // Kita pakai 'ruangan_id' dari data peminjaman yang kita temukan di awal
-            id: peminjamanRuangan.ruangan_id 
-        },
-        data: {
-            status: StatusRuangan.DIAJUKAN // <-- Set status jadi DIAJUKAN
-        }
+      where: {
+        // Kita pakai 'ruangan_id' dari data peminjaman yang kita temukan di awal
+        id: peminjamanRuangan.ruangan_id
+      },
+      data: {
+        status: StatusRuangan.DIAJUKAN // <-- Set status jadi DIAJUKAN
+      }
     });
 
     // --- TAMBAHAN PENTING (LANGKAH 3) ---
@@ -864,15 +875,15 @@ const getListPengajuanRuanganTerjadwal = asyncHandler(async (req: Request, res: 
         ? {
           id: pr.accepted_by.id,
           nama: pr.accepted_by.nama,
-          email: pr.accepted_by.email,
-          role: pr.accepted_by.role?.nama_role,
+          email: pr.accepted_by.email ?? "",
+          role: pr.accepted_by.role?.nama_role ?? "",
         }
         : null,
       user: pr.user
         ? {
           id: pr.user.id,
           nama: pr.user.nama,
-          email: pr.user.email,
+          email: pr.user.email ?? "",
           NIM: pr.user.NIM,
           NIP: pr.user.NIP,
           role: pr.user.role?.nama_role

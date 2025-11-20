@@ -135,7 +135,7 @@ export const initBookingScheduler = () => {
             // 5. KIRIM EMAIL (Diluar transaction biar gak blocking DB kalau SMTP lemot)
             await transporter.sendMail({
                 from: '"Lab Admin" <jrkonveksiemail@gmail.com>',
-                to: user.email,
+                to: user.email || '', // Pastikan email bukan undefined
                 subject: emailSubject,
                 html: emailHtml,
             });

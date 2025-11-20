@@ -53,8 +53,8 @@ export interface UserResponse {
     uniqueId: string;
     nama: string;
     email: string;
-
-    NIM?: string;
+    KLP?: string | null;
+    NIM?: string | null;
     semester?: number;
     profilUrl?: string;
     profil?: string;
