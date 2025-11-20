@@ -995,6 +995,57 @@ const UpdateRuanganCancle = asyncHandler(async (req: Request, res: Response) => 
     });
 });
 
+const SelesaiRuangan = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    if (!id || isNaN(parseInt(id))) {
+        throw new AppError("Valid peminjaman ID is required", 400);
+    }
+
+    // Ambil peminjaman
+    const existingBooking = await prisma.peminjaman_Ruangan.findUnique({
+        where: { id: parseInt(id) },
+        select: { id: true, ruangan_id: true, status: true }
+    });
+
+    if (!existingBooking) {
+        throw new AppError("Peminjaman not found", 404);
+    }
+
+    // Hanya izinkan perubahan dari DISETUJUI -> SELESAI
+    if (existingBooking.status !== StatusPeminjamanRuangan.DISETUJUI) {
+        throw new AppError("Only bookings with status 'DISETUJUI' can be marked as 'SELESAI'", 400);
+    }
+
+    // Update status peminjaman jadi SELESAI
+    const updatedBooking = await prisma.peminjaman_Ruangan.update({
+        where: { id: existingBooking.id },
+        data: {
+            status: StatusPeminjamanRuangan.SELESAI,
+            updatedAt: new Date()
+        }
+    });
+
+    // Set ruangan menjadi KOSONG
+    if (existingBooking.ruangan_id) {
+        await prisma.ruangan.update({
+            where: { id: existingBooking.ruangan_id },
+            data: {
+                status: StatusRuangan.KOSONG,
+                updatedAt: new Date()
+            }
+        });
+    }
+
+    // Clear related caches and prewarm
+    clearAllRuanganCaches();
+    setImmediate(() => prewarmRuanganCaches());
+
+    return res.status(200).json({
+        message: "Peminjaman marked as SELESAI and ruangan set to KOSONG",
+        data: updatedBooking
+    });
+});
 
 const RuanganController = {
     CreateRuangan,
@@ -1005,6 +1056,7 @@ const RuanganController = {
     RestoreRuangan,
     GetGedungList,
     UpdateRuanganCancle,
+    SelesaiRuangan,
     
     GetRuanganStats,
     GetRuanganCacheStats,

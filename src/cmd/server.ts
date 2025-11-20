@@ -1,6 +1,7 @@
 import app from "./app";
 import config from "../code/config/config";
 import { PrismaClient } from "@prisma/client";
+import { initBookingScheduler } from '../code/utils/scheduler';
 
 app.listen(config.port, () => {
     if (config.nodeEnv === 'development') {
@@ -33,3 +34,4 @@ prisma.$connect()
         console.error('❌ Database connection failed:', error);
     });
     
+initBookingScheduler();

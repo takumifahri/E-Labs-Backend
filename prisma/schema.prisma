@@ -263,6 +263,7 @@ model Peminjaman_Ruangan {
   tanggal               DateTime?
   jam_mulai             DateTime?
   jam_selesai           DateTime?
+  jam_realisasi_selesai DateTime?
   status                StatusPeminjamanRuangan
   kegiatan              String?
   dokumen               String?
