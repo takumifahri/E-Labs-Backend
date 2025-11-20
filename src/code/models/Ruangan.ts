@@ -70,8 +70,8 @@ export interface PengajuanPeminjamanRuanganBaseRequest{
 export interface LengkapiDataPengajuanRuanganRequest {
     id: number;
     matkul_id?: number;
-    waktu_mulai: Date;
-    waktu_selesai: Date;
+    jam_mulai: Date;
+    jam_selesai: Date;
     dokumen?: string;
     kegiatan?: string;
 }
@@ -82,8 +82,8 @@ export interface PengajuanRuanganaTerjadwalRequest {
     nip?: string;
     matkul_id?: number;
     ruangan_id: number;
-    waktu_mulai: Date;
-    waktu_selesai: Date;
+    jam_mulai: Date;
+    jam_selesai: Date;
     dokumen?: string;
     kegiatan?: string;
 }
