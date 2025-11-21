@@ -1012,21 +1012,21 @@ const SelesaiRuangan = asyncHandler(async (req: Request, res: Response) => {
         throw new AppError("Peminjaman not found", 404);
     }
 
-    // Hanya izinkan perubahan dari DISETUJUI -> SELESAI
     if (existingBooking.status !== StatusPeminjamanRuangan.DISETUJUI) {
         throw new AppError("Only bookings with status 'DISETUJUI' can be marked as 'SELESAI'", 400);
     }
 
-    // Update status peminjaman jadi SELESAI
+    // Update status peminjaman jadi SELESAI & Catat Waktu Realisasi
     const updatedBooking = await prisma.peminjaman_Ruangan.update({
         where: { id: existingBooking.id },
         data: {
             status: StatusPeminjamanRuangan.SELESAI,
+            jam_realisasi_selesai: new Date(), 
             updatedAt: new Date()
         }
     });
 
-    // Set ruangan menjadi KOSONG
+    // Set ruangan menjadi KOSONG 
     if (existingBooking.ruangan_id) {
         await prisma.ruangan.update({
             where: { id: existingBooking.ruangan_id },
@@ -1042,11 +1042,10 @@ const SelesaiRuangan = asyncHandler(async (req: Request, res: Response) => {
     setImmediate(() => prewarmRuanganCaches());
 
     return res.status(200).json({
-        message: "Peminjaman marked as SELESAI and ruangan set to KOSONG",
+        message: "Peminjaman marked as SELESAI, Realisasi Time recorded, and ruangan set to KOSONG",
         data: updatedBooking
     });
 });
-
 const RuanganController = {
     CreateRuangan,
     GetRuanganMaster,

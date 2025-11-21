@@ -1183,13 +1183,81 @@ const isRuanganAvailable = asyncHandler(async (req: Request, res: Response, next
   }
 });
 
+const GetStatusRuanganRealtime = asyncHandler(async (req: Request, res: Response) => {
+    const now = new Date();
+
+    const startOfDay = new Date(now.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(now.setHours(23, 59, 59, 999));
+
+    // 2. Query Ruangan + Include Peminjaman
+    const ruanganList = await prisma.ruangan.findMany({
+        orderBy: {
+            nama_ruangan: 'asc' 
+        },
+        include: {
+            peminjaman_ruangans: {
+                where: {
+                    tanggal: {
+                        gte: startOfDay,
+                        lte: endOfDay
+                    },
+                    status: {
+                        in: [
+                            StatusPeminjamanRuangan.DISETUJUI,  
+                            StatusPeminjamanRuangan.BERLANGSUNG, 
+                            StatusPeminjamanRuangan.SELESAI      
+                        ]
+                    }
+                },
+                orderBy: {
+                    jam_mulai: 'asc'
+                },
+                include: {
+                    user: {
+                        select: { nama: true }
+                    },
+                    matkul: {
+                        select: { matkul: true } 
+                    }
+                }
+            }
+        }
+    });
+
+    const formattedData = ruanganList.map(ruang => {
+        return {
+            id: ruang.id,
+            nama: ruang.nama_ruangan,
+            gedung: ruang.gedung,
+            status_fisik: ruang.status, 
+          
+            jadwal_hari_ini: ruang.peminjaman_ruangans.map(pinjam => ({
+                id: pinjam.id,
+                jam_mulai: pinjam.jam_mulai,
+                jam_selesai: pinjam.jam_selesai,
+                jam_realisasi: pinjam.jam_realisasi_selesai, 
+                status: pinjam.status,
+                peminjam: pinjam.user.nama,
+                kegiatan: pinjam.kegiatan || pinjam.matkul?.matkul || "Tidak ada keterangan"
+            }))
+        };
+    });
+
+    return res.status(200).json({
+        status: "success",
+        message: "Data status ruangan realtime retrieved successfully",
+        data: formattedData
+    });
+});
+
+
 const PeminjamanRuanganController = {
   PengajuanPeminjamanRuanganTerjadwal,
   lengkapiPengajuanPeminjamanRuanganTerjadwal,
   pembatalanPeminjamanRuanganTerjadwal,
   aktivasiPeminjamanRuanganTerjadwal,
   getMatkulByNim,
-
+  GetStatusRuanganRealtime,
   getAllRuangan,
   getDetailRuangan,
 

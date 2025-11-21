@@ -23,4 +23,8 @@ ruanganRouter.post('/isAvailable',
     PeminjamanRuanganController.isRuanganAvailable
 );
 
+ruanganRouter.get('/status/realtime',
+    PeminjamanRuanganController.GetStatusRuanganRealtime
+);
+
 export default ruanganRouter;
