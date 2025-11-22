@@ -269,6 +269,9 @@ model Peminjaman_Ruangan {
   kegiatan              String?
   dokumen               String?
   token                 String?
+  isLoop                Boolean? @default(false)
+
+
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @updatedAt
   deletedAt             DateTime?

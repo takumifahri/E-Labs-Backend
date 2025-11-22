@@ -404,10 +404,17 @@ const applyPendingStatus = (ruangan: any, pendingRoomIds: Set<number>) => {
         
     };
 };
+// ...existing code...
 
 export const GetRuanganMaster = asyncHandler(async (req: Request, res: Response) => {
-    const { gedung, nama_ruangan, kode_ruangan, status } = req.query;
-    const filters: any = { gedung, nama_ruangan, kode_ruangan, status };
+    const { gedung, nama_ruangan, kode_ruangan, status, tanggal } = req.query;
+    const filters: any = { gedung, nama_ruangan, kode_ruangan, status, tanggal };
+
+    // Tentukan tanggal untuk filter jadwal (default: hari ini)
+    const targetDate = tanggal ? new Date(tanggal as string) : new Date();
+    const dateStr = targetDate.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+
+    console.log('🗓️ Filter tanggal:', dateStr); // Debug log
 
     const pendingPeminjamans = await prisma.peminjaman_Ruangan.findMany({
         where: { status: StatusPeminjamanRuangan.PENDING },
@@ -416,7 +423,7 @@ export const GetRuanganMaster = asyncHandler(async (req: Request, res: Response)
  
     const pendingRoomIds = new Set(pendingPeminjamans.map(p => p.ruangan_id));
 
-    const cacheKey = getCacheKey('ruangan:list', filters);
+    const cacheKey = getCacheKey('ruangan:list', { ...filters, tanggal: dateStr });
     const cached = getCache(ruanganCache, cacheKey);
 
     if (cached) {
@@ -430,7 +437,8 @@ export const GetRuanganMaster = asyncHandler(async (req: Request, res: Response)
             data: dataWithPending, 
             cached: true,
             cache_timestamp: new Date().toISOString(),
-            cache_hits: ruanganCache.get(cacheKey)?.hits || 0
+            cache_hits: ruanganCache.get(cacheKey)?.hits || 0,
+            filter_tanggal: dateStr
         });
     }
 
@@ -457,30 +465,129 @@ export const GetRuanganMaster = asyncHandler(async (req: Request, res: Response)
         orderBy: { createdAt: 'asc' }
     });
 
-    const ruangansWithPending = ruangans.map(r => 
-        applyPendingStatus(r, pendingRoomIds)
-    );
+    // ✅ PERBAIKAN: Filter berdasarkan field 'tanggal' di peminjaman_Ruangan
+    const jadwalTerpakai = await prisma.peminjaman_Ruangan.findMany({
+        where: {
+            ruangan_id: { in: ruangans.map(r => r.id) },
+            status: { 
+                in: [
+                    StatusPeminjamanRuangan.DISETUJUI, 
+                    StatusPeminjamanRuangan.BERLANGSUNG, 
+                    StatusPeminjamanRuangan.DIAJUKAN, 
+                    StatusPeminjamanRuangan.PENDING
+                ] 
+            },
+            // 🚀 FIX: Filter berdasarkan field 'tanggal' bukan jam_mulai/jam_selesai
+            tanggal: {
+                gte: new Date(dateStr + "T00:00:00.000Z"),
+                lte: new Date(dateStr + "T23:59:59.999Z")
+            }
+        },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    nama: true,
+                    NIM: true,
+                    email: true
+                }
+            }
+        },
+        orderBy: { jam_mulai: 'asc' }
+    });
+
+    console.log('🏢 Query jadwal terpakai:', {
+        dateFilter: dateStr,
+        ruanganIds: ruangans.map(r => r.id),
+        foundSchedules: jadwalTerpakai.length
+    }); // Debug log
+
+    // Apply pending status dan tambahkan jadwal terpakai untuk setiap ruangan
+    const ruangansWithPendingAndSchedule = ruangans.map(ruangan => {
+        const ruanganWithPending = applyPendingStatus(ruangan, pendingRoomIds);
+        
+        // Filter jadwal yang terkait dengan ruangan ini
+        const jadwalRuangan = jadwalTerpakai
+            .filter(jadwal => jadwal.ruangan_id === ruangan.id)
+            .map(jadwal => ({
+                id: jadwal.id,
+                user_id: jadwal.user_id,
+                peminjam: {
+                    id: jadwal.user.id,
+                    nama: jadwal.user.nama,
+                    nim: jadwal.user.NIM,
+                    email: jadwal.user.email
+                },
+                kegiatan: jadwal.kegiatan,
+                jam_mulai: jadwal.jam_mulai,
+                jam_selesai: jadwal.jam_selesai,
+                jam_realisasi_selesai: jadwal.jam_realisasi_selesai,
+                status: jadwal.status,
+                tanggal: jadwal.tanggal,
+                // Tambahan info berguna
+                durasi_dijadwalkan: calculateDuration(jadwal.jam_mulai ?? new Date(0), jadwal.jam_selesai ?? new Date(0)),
+                durasi_realisasi: jadwal.jam_realisasi_selesai 
+                    ? calculateDuration(jadwal.jam_mulai ?? new Date(0), jadwal.jam_realisasi_selesai)
+                    : null,
+                is_overtime: jadwal.jam_realisasi_selesai 
+                    ? new Date(jadwal.jam_realisasi_selesai) > new Date(jadwal.jam_selesai ?? new Date(0))
+                    : false
+            }));
+
+        return {
+            ...ruanganWithPending,
+            jadwal_terpakai: jadwalRuangan,
+            total_peminjaman_hari_ini: jadwalRuangan.length,
+            is_busy_today: jadwalRuangan.some(j => 
+                j.status === StatusPeminjamanRuangan.BERLANGSUNG ||
+                j.status === StatusPeminjamanRuangan.DISETUJUI
+            )
+        };
+    });
 
     const result = {
         status: "success",
         message: "Ruangan retrieved successfully",
-        data: ruangansWithPending,
-        count: ruangansWithPending.length,
+        data: ruangansWithPendingAndSchedule,
+        count: ruangansWithPendingAndSchedule.length,
+        filter_tanggal: dateStr,
+        debug_info: {
+            total_schedules_found: jadwalTerpakai.length,
+            ruangan_with_schedules: ruangansWithPendingAndSchedule.filter(r => r.jadwal_terpakai.length > 0).length
+        },
+        summary: {
+            total_ruangan: ruangansWithPendingAndSchedule.length,
+            ruangan_terpakai: ruangansWithPendingAndSchedule.filter(r => r.is_busy_today).length,
+            ruangan_kosong: ruangansWithPendingAndSchedule.filter(r => !r.is_busy_today).length,
+            total_peminjaman: jadwalTerpakai.length
+        },
         cached: false
     };
 
+    // Cache the result (cache original data without jadwal for efficiency)
     setCache(ruanganCache, cacheKey, {
         ...result,
         data: ruangans 
     });
 
-  
     if (ruanganCache.size < CACHE_CONFIG.MAX_CACHE_SIZE) {
         setImmediate(() => prewarmRuanganCaches());
     }
 
     return res.status(200).json(result);
 });
+
+// Helper function untuk kalkulasi durasi
+const calculateDuration = (startTime: Date | string, endTime: Date | string): string => {
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    const diffMs = end.getTime() - start.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    return `${diffHours}h ${diffMinutes}m`;
+};
+
 
 const GetRuanganById = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
