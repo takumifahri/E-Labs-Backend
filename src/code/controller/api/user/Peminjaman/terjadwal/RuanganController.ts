@@ -7,6 +7,7 @@ import { error } from "console";
 import { logActivity } from "../../LogController";
 import crypto from "crypto";
 import { transporter } from "../../../../../utils/Mail.config";
+import { RoomManager } from "../../../../../utils/roomManager";
 
 const prisma = new PrismaClient({
   datasources: {
@@ -580,7 +581,7 @@ export const lengkapiPengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (r
     // Prevent jika dia ngajuin di atas jam 17 dan di bawah jam 6
     const startHour = new Date(jam_mulai).getHours();
     const endHour = new Date(jam_selesai).getHours();
-    if (startHour < 6 || endHour > 18) {
+    if (startHour < 6 || endHour > 17) {
       return res.status(400).json({
         success: false,
         message: "Peminjaman ruangan hanya dapat dilakukan antara jam 6 pagi hingga jam 6 sore"
@@ -1183,15 +1184,88 @@ const isRuanganAvailable = asyncHandler(async (req: Request, res: Response, next
   }
 });
 
+// INI GAK KEPAKE YA ASU KAYANYA TAPI MASIH DISIMPEN DULU
+const GetStatusRuanganRealtime = asyncHandler(async (req: Request, res: Response) => {
+    // --- PERBAIKAN TIMEZONE START ---
+    const now = new Date();
+    const bufferStart = new Date(now);
+    bufferStart.setDate(bufferStart.getDate() - 1); // Mundur 1 Hari (24 Jam)
+    
+    const bufferEnd = new Date(now);
+    bufferEnd.setDate(bufferEnd.getDate() + 1); // Maju 1 Hari (Buat jaga-jaga)
+
+    const ruanganList = await prisma.ruangan.findMany({
+        orderBy: {
+            nama_ruangan: 'asc' 
+        },
+        include: {
+            peminjaman_ruangans: {
+                where: {
+                    // Pake Buffer, jangan strict 'Hari Ini'
+                    tanggal: {
+                        gte: bufferStart,
+                        lte: bufferEnd
+                    },
+                    status: {
+                        in: [
+                            StatusPeminjamanRuangan.DISETUJUI,  
+                            StatusPeminjamanRuangan.BERLANGSUNG, 
+                            StatusPeminjamanRuangan.SELESAI      
+                        ]
+                    }
+                },
+                orderBy: {
+                    jam_mulai: 'asc'
+                },
+                include: {
+                    user: { select: { nama: true } },
+                    matkul: { select: { matkul: true } }
+                }
+            }
+        }
+    });
+
+    const formattedData = ruanganList.map(ruang => {
+        return {
+            id: ruang.id,
+            nama: ruang.nama_ruangan,
+            gedung: ruang.gedung,
+            status_fisik: ruang.status, 
+            jadwal_hari_ini: ruang.peminjaman_ruangans.map(pinjam => ({
+                id: pinjam.id,
+                jam_mulai: pinjam.jam_mulai,
+                jam_selesai: pinjam.jam_selesai,
+                jam_realisasi: pinjam.jam_realisasi_selesai, 
+                status: pinjam.status,
+                peminjam: pinjam.user.nama,
+                kegiatan: pinjam.kegiatan || pinjam.matkul?.matkul || "Tidak ada keterangan"
+            }))
+        };
+    });
+
+    return res.status(200).json({
+        status: "success",
+        message: "Data status ruangan realtime retrieved successfully",
+        data: formattedData
+    });
+});
+
+const GetRoomsRealtimeState = (req: Request, res: Response) => {
+    const data = RoomManager.getAllRooms(); 
+    return res.json({ success: true, data });
+};
+
+
 const PeminjamanRuanganController = {
   PengajuanPeminjamanRuanganTerjadwal,
   lengkapiPengajuanPeminjamanRuanganTerjadwal,
   pembatalanPeminjamanRuanganTerjadwal,
   aktivasiPeminjamanRuanganTerjadwal,
   getMatkulByNim,
-
+  GetStatusRuanganRealtime,
   getAllRuangan,
   getDetailRuangan,
+  GetRoomsRealtimeState,
 
   getListPengajuanRuanganTerjadwal,
   isRuanganAvailable,

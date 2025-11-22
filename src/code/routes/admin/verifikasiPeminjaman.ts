@@ -40,6 +40,12 @@ verfikasi_router.patch('/peminjaman-ruangan/:id',
     verifikasiPeminjamanRuanganController.verifikasiAjuanPeminjamanRuangan
 );
 
+verfikasi_router.patch('/peminjaman-ruangan/selesai/:id',
+    authMiddleware,
+    AuthMiddleware.Checkroles(Role),
+    RuanganController.SelesaiRuangan
+);
+
 verfikasi_router.patch('/peminjaman-ruangan/cancel/:id',
     authMiddleware,
     AuthMiddleware.Checkroles(Role),
