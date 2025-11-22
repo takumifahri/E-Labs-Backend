@@ -6,6 +6,7 @@ import QRCode from "qrcode";
 import { FileHandler, UploadCategory } from '../../../utils/FileHandler'; // sesuaikan path
 import fs from 'fs';
 import path from 'path';
+import {RoomManager} from '../../../utils/roomManager';
 // Remove Accelerate, use local database only
 const prisma = new PrismaClient({
     datasources: {
@@ -1105,54 +1106,48 @@ const UpdateRuanganCancle = asyncHandler(async (req: Request, res: Response) => 
 const SelesaiRuangan = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
 
-    if (!id || isNaN(parseInt(id))) {
-        throw new AppError("Valid peminjaman ID is required", 400);
-    }
+    if (!id || isNaN(parseInt(id))) throw new AppError("Valid ID required", 400);
 
-    // Ambil peminjaman
     const existingBooking = await prisma.peminjaman_Ruangan.findUnique({
         where: { id: parseInt(id) },
         select: { id: true, ruangan_id: true, status: true }
     });
 
-    if (!existingBooking) {
-        throw new AppError("Peminjaman not found", 404);
-    }
-
-    // Hanya izinkan perubahan dari DISETUJUI -> SELESAI
+    if (!existingBooking) throw new AppError("Peminjaman not found", 404);
     if (existingBooking.status !== StatusPeminjamanRuangan.DISETUJUI) {
         throw new AppError("Only bookings with status 'DISETUJUI' can be marked as 'SELESAI'", 400);
     }
 
-    // Update status peminjaman jadi SELESAI
     const updatedBooking = await prisma.peminjaman_Ruangan.update({
         where: { id: existingBooking.id },
         data: {
             status: StatusPeminjamanRuangan.SELESAI,
+            jam_realisasi_selesai: new Date(), 
             updatedAt: new Date()
         }
     });
 
-    // Set ruangan menjadi KOSONG
+    // 3. Update Ruangan Fisik di DB
     if (existingBooking.ruangan_id) {
         await prisma.ruangan.update({
             where: { id: existingBooking.ruangan_id },
-            data: {
-                status: StatusRuangan.KOSONG,
-                updatedAt: new Date()
-            }
+            data: { status: StatusRuangan.KOSONG, updatedAt: new Date() }
         });
     }
+    const io = req.app.get('socketio'); 
+    await RoomManager.updateRoomStatus(io, existingBooking.ruangan_id, 'EARLY_RELEASE');
 
-    // Clear related caches and prewarm
     clearAllRuanganCaches();
     setImmediate(() => prewarmRuanganCaches());
 
     return res.status(200).json({
-        message: "Peminjaman marked as SELESAI and ruangan set to KOSONG",
+        message: "Success",
         data: updatedBooking
     });
 });
+
+
+
 
 const RuanganController = {
     CreateRuangan,
