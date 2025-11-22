@@ -8,6 +8,7 @@ import { errorHandler, notFound } from "../code/middleware/error";
 import path from "node:path";
 import { error } from "node:console";
 import cookieParser from "cookie-parser";
+import { initAllSchedulers } from "../code/utils/scheduler";
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
@@ -20,7 +21,7 @@ app.use('/storage', express.static(path.join(process.cwd(), 'src', 'code', 'stor
 //     console.log(`${req.method} ${req.path}`);
 //     next();
 // });
-
+initAllSchedulers();
 // Test endpoint untuk cek static files
 app.get('/test-static', (req, res) => {
     const storagePath = path.join(process.cwd(), 'src', 'code', 'storage');

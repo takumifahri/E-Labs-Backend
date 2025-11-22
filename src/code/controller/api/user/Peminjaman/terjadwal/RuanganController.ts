@@ -1266,6 +1266,93 @@ const GetRoomsRealtimeState = (req: Request, res: Response) => {
     return res.json({ success: true, data });
 };
 
+const getJadwalRuanganPerBulan = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  // ✅ GANTI: Ambil dari query parameters, bukan params
+  const { bulan, tahun } = req.query;
+  
+  // Default ke bulan/tahun sekarang jika tidak diisi
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1; // 0-based, jadi +1
+  const currentYear = now.getFullYear();
+  
+  const bulanInt = bulan ? parseInt(bulan as string) : currentMonth;
+  const tahunInt = tahun ? parseInt(tahun as string) : currentYear;
+
+  // Validasi range
+  if (bulanInt < 1 || bulanInt > 12) {
+    return next(new AppError("Bulan harus antara 1-12", 400));
+  }
+
+  if (tahunInt < 2020 || tahunInt > 2030) {
+    return next(new AppError("Tahun harus antara 2020-2030", 400));
+  }
+
+  // Buat tanggal awal dan akhir bulan
+  const startDate = new Date(tahunInt, bulanInt - 1, 1); // Awal bulan
+  const endDate = new Date(tahunInt, bulanInt, 0, 23, 59, 59, 999); // Akhir bulan
+
+  console.log(`📅 Filter periode: ${startDate.toISOString()} - ${endDate.toISOString()}`);
+
+  // Query database
+  const jadwal = await prisma.peminjaman_Ruangan.findMany({
+    where: {
+      tanggal: {
+        gte: startDate,
+        lte: endDate
+      }
+    },
+    include: {
+      ruangan: {
+        select: {
+          id: true,
+          nama_ruangan: true,
+          kode_ruangan: true,
+          gedung: true,
+          status: true
+        }
+      },
+      user: {
+        select: {
+          id: true,
+          nama: true,
+          email: true,
+          NIM: true,
+          NIP: true
+        }
+      },
+      matkul: {
+        select: {
+          id: true,
+          matkul: true,
+          semester: true,
+          prodi_id: true
+        }
+      }
+    },
+    orderBy: [
+      { tanggal: 'asc' },
+      { jam_mulai: 'asc' }
+    ]
+  });
+
+  return res.status(200).json({
+    status: "success",
+    message: `Jadwal ruangan untuk ${bulanInt}/${tahunInt} berhasil diambil`,
+    data: jadwal,
+    count: jadwal.length,
+    period: {
+      start: startDate.toISOString().split('T')[0],
+      end: endDate.toISOString().split('T')[0],
+      month: bulanInt,
+      year: tahunInt,
+      is_default: !bulan || !tahun
+    },
+    query_used: {
+      bulan: bulanInt,
+      tahun: tahunInt
+    }
+  });
+});
 
 const PeminjamanRuanganController = {
   PengajuanPeminjamanRuanganTerjadwal,
@@ -1280,5 +1367,6 @@ const PeminjamanRuanganController = {
 
   getListPengajuanRuanganTerjadwal,
   isRuanganAvailable,
+  getJadwalRuanganPerBulan
 };
 export default PeminjamanRuanganController;
