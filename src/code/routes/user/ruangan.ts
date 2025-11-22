@@ -27,4 +27,8 @@ ruanganRouter.get('/status/realtime',
     PeminjamanRuanganController.GetStatusRuanganRealtime
 );
 
+ruanganRouter.get('/status/all/realtime',
+    PeminjamanRuanganController.GetRoomsRealtimeState
+);
+
 export default ruanganRouter;

@@ -7,6 +7,7 @@ import { error } from "console";
 import { logActivity } from "../../LogController";
 import crypto from "crypto";
 import { transporter } from "../../../../../utils/Mail.config";
+import { RoomManager } from "../../../../../utils/roomManager";
 
 const prisma = new PrismaClient({
   datasources: {
@@ -1183,13 +1184,16 @@ const isRuanganAvailable = asyncHandler(async (req: Request, res: Response, next
   }
 });
 
+// INI GAK KEPAKE YA ASU KAYANYA TAPI MASIH DISIMPEN DULU
 const GetStatusRuanganRealtime = asyncHandler(async (req: Request, res: Response) => {
+    // --- PERBAIKAN TIMEZONE START ---
     const now = new Date();
+    const bufferStart = new Date(now);
+    bufferStart.setDate(bufferStart.getDate() - 1); // Mundur 1 Hari (24 Jam)
+    
+    const bufferEnd = new Date(now);
+    bufferEnd.setDate(bufferEnd.getDate() + 1); // Maju 1 Hari (Buat jaga-jaga)
 
-    const startOfDay = new Date(now.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(now.setHours(23, 59, 59, 999));
-
-    // 2. Query Ruangan + Include Peminjaman
     const ruanganList = await prisma.ruangan.findMany({
         orderBy: {
             nama_ruangan: 'asc' 
@@ -1197,9 +1201,10 @@ const GetStatusRuanganRealtime = asyncHandler(async (req: Request, res: Response
         include: {
             peminjaman_ruangans: {
                 where: {
+                    // Pake Buffer, jangan strict 'Hari Ini'
                     tanggal: {
-                        gte: startOfDay,
-                        lte: endOfDay
+                        gte: bufferStart,
+                        lte: bufferEnd
                     },
                     status: {
                         in: [
@@ -1213,12 +1218,8 @@ const GetStatusRuanganRealtime = asyncHandler(async (req: Request, res: Response
                     jam_mulai: 'asc'
                 },
                 include: {
-                    user: {
-                        select: { nama: true }
-                    },
-                    matkul: {
-                        select: { matkul: true } 
-                    }
+                    user: { select: { nama: true } },
+                    matkul: { select: { matkul: true } }
                 }
             }
         }
@@ -1230,7 +1231,6 @@ const GetStatusRuanganRealtime = asyncHandler(async (req: Request, res: Response
             nama: ruang.nama_ruangan,
             gedung: ruang.gedung,
             status_fisik: ruang.status, 
-          
             jadwal_hari_ini: ruang.peminjaman_ruangans.map(pinjam => ({
                 id: pinjam.id,
                 jam_mulai: pinjam.jam_mulai,
@@ -1250,6 +1250,11 @@ const GetStatusRuanganRealtime = asyncHandler(async (req: Request, res: Response
     });
 });
 
+const GetRoomsRealtimeState = (req: Request, res: Response) => {
+    const data = RoomManager.getAllRooms(); 
+    return res.json({ success: true, data });
+};
+
 
 const PeminjamanRuanganController = {
   PengajuanPeminjamanRuanganTerjadwal,
@@ -1260,6 +1265,7 @@ const PeminjamanRuanganController = {
   GetStatusRuanganRealtime,
   getAllRuangan,
   getDetailRuangan,
+  GetRoomsRealtimeState,
 
   getListPengajuanRuanganTerjadwal,
   isRuanganAvailable,
