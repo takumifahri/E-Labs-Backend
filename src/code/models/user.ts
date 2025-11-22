@@ -31,6 +31,9 @@ export interface CreateUserRequest {
     nama: string;
     email: string;
     password: string;
+    NIM?: string;
+    NIP?: string;
+    semester?: number;
     roleId?: number; // Optional since it has default value 1
 }
 

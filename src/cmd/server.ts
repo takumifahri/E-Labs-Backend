@@ -29,7 +29,7 @@ prisma.$connect()
     .then(() => {
         console.log('✅ Database connected successfully');
     })
-    .catch((error) => {
+    .catch((error : any) => {
         console.error('❌ Database connection failed:', error);
     });
     

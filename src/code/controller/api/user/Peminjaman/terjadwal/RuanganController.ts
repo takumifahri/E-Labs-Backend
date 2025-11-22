@@ -580,10 +580,10 @@ export const lengkapiPengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (r
     // Prevent jika dia ngajuin di atas jam 17 dan di bawah jam 6
     const startHour = new Date(jam_mulai).getHours();
     const endHour = new Date(jam_selesai).getHours();
-    if (startHour < 6 || endHour > 17) {
+    if (startHour < 6 || endHour > 18) {
       return res.status(400).json({
         success: false,
-        message: "Peminjaman ruangan hanya dapat dilakukan antara jam 6 pagi hingga jam 5 sore"
+        message: "Peminjaman ruangan hanya dapat dilakukan antara jam 6 pagi hingga jam 6 sore"
       });
     }
 
