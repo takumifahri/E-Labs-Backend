@@ -21,6 +21,7 @@ CREATE TABLE "public"."User" (
     "id" SERIAL NOT NULL,
     "uniqueId" TEXT NOT NULL,
     "roleId" INTEGER NOT NULL DEFAULT 1,
+    "KLP" TEXT,
     "prodiId" INTEGER,
     "semester" INTEGER,
     "profil" TEXT,
@@ -180,6 +181,7 @@ CREATE TABLE "public"."Peminjaman_Ruangan" (
     "kegiatan" TEXT,
     "dokumen" TEXT,
     "token" TEXT,
+    "isLoop" BOOLEAN DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
@@ -214,6 +216,14 @@ CREATE TABLE "public"."Notifikasi" (
     "deletedAt" TIMESTAMP(3),
 
     CONSTRAINT "Notifikasi_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."Tes" (
+    "id" SERIAL NOT NULL,
+    "name" TEXT NOT NULL,
+
+    CONSTRAINT "Tes_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex

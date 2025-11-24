@@ -318,3 +318,8 @@ model Notifikasi {
   // FK Relations
   user      User      @relation(fields: [user_id], references: [id])
 }
+
+model Tes {
+  id        Int       @id @default(autoincrement())
+  name      String
+}

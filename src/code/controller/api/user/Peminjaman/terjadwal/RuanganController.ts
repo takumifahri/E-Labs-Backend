@@ -584,7 +584,7 @@ export const lengkapiPengajuanPeminjamanRuanganTerjadwal = asyncHandler(async (r
     if (startHour < 6 || endHour > 17) {
       return res.status(400).json({
         success: false,
-        message: "Peminjaman ruangan hanya dapat dilakukan antara jam 6 pagi hingga jam 5 sore"
+        message: "Peminjaman ruangan hanya dapat dilakukan antara jam 6 pagi hingga jam 6 sore"
       });
     }
 
@@ -1353,6 +1353,9 @@ const getJadwalRuanganPerBulan = asyncHandler(async (req: Request, res: Response
     }
   });
 });
+
+
+
 
 const PeminjamanRuanganController = {
   PengajuanPeminjamanRuanganTerjadwal,

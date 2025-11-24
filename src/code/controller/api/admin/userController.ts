@@ -79,6 +79,61 @@ const CreateUser = asyncHandler(async (req: express.Request, res: express.Respon
     });
 });
 
+const tambahUser = asyncHandler(async (req: express.Request, res: express.Response) => {
+    const { nama, email, password, NIM, NIP, semester, roleId }: CreateUserRequest = req.body;
+
+    if (!nama || !email || !password || (!NIM && !NIP)) {
+        throw new AppError("Name, email, password, and either NIM or NIP are required", 400);
+    }
+
+    if (roleId === 1) {
+        if (!NIM) {
+            throw new AppError("NIM wajib diisi untuk mahasiswa", 400);
+        }
+        if (NIP) {
+            throw new AppError("Mahasiswa tidak boleh memiliki NIP", 400);
+        }
+    }
+
+    // Jika BUKAN MAHASISWA
+    if (roleId !== 1) {
+        if (!NIP) {
+            throw new AppError("NIP wajib diisi untuk dosen/pengelola/admin", 400);
+        }
+        if (NIM) {
+            throw new AppError("Dosen/pengelola/admin tidak boleh memiliki NIM", 400);
+        }
+    }
+
+    const uniqueId = `USR-${uuidv4()}`;
+    const hashedPassword = await HashPassword(password);
+
+    const addUser = await prisma.user.create({
+        data: {
+            uniqueId: `USR-${uuidv4()}`,
+            nama,
+            email,
+            password: hashedPassword,
+            roleId,
+            NIM,
+            NIP,
+            semester,
+        },
+        include: { role: true }
+    });
+
+    return res.status(201).json({
+        message: "User created successfully",
+        data: {
+            uniqueId: addUser.uniqueId,
+            nama: addUser.nama,
+            email: addUser.email,
+            role: addUser.role,
+            createdAt: addUser.createdAt
+        }
+    });
+});
+
 const getUserById = asyncHandler(async (req: express.Request, res: express.Response) => {
     const { uniqueId } = req.params;
 
@@ -527,6 +582,7 @@ const UserController = {
     updateUser,
     deleteUser,
     ListUsers,
+    tambahUser,
 
     deactivatedUser,
     getDashboardStats,

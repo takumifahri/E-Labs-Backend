@@ -20,7 +20,7 @@ prisma.$connect()
         console.log('✅ Database connected successfully');
         await RoomManager.init();
     })
-    .catch((error) => {
+    .catch((error : any) => {
         console.error('❌ Database connection failed:', error);
     });
     

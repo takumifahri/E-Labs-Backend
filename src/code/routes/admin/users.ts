@@ -10,6 +10,16 @@ const AccessRoles = ['superadmin', 'pengelola'];
 
 AdminUserRouter.get('/prodi', authMiddleware, AuthMiddleware.Checkroles(AccessRoles), UserController.getListProdi);
 
+AdminUserRouter.get('/dashboard/stats', authMiddleware, AuthMiddleware.Checkroles(AccessRoles), UserController.getDashboardStats);
+
+AdminUserRouter.post(
+    '/tambah',
+    authMiddleware,
+    AuthMiddleware.Checkroles(AccessRoles),
+    userUpload,
+    UserController.tambahUser
+);
+
 AdminUserRouter.get('/:uniqueId', authMiddleware, AuthMiddleware.Checkroles(AccessRoles), UserController.getUserById);
 
 AdminUserRouter.patch(
@@ -27,12 +37,10 @@ AdminUserRouter.post(
     userUpload, // <--- jika create user bisa upload foto
     UserController.CreateUser
 );
+
 AdminUserRouter.delete('/:uniqueId', authMiddleware, AuthMiddleware.Checkroles(AccessRoles), UserController.deleteUser);
 
 AdminUserRouter.get('/', authMiddleware, AuthMiddleware.Checkroles(AccessRoles), UserController.ListUsers);
-
-
-AdminUserRouter.get('/dashboard/stats', authMiddleware, AuthMiddleware.Checkroles(AccessRoles), UserController.getDashboardStats);
 
 AdminUserRouter.patch('/:id/deactivate', authMiddleware, AuthMiddleware.Checkroles(AccessRoles), UserController.deactivatedUser);
 AdminUserRouter.patch('/:id/reactivate', authMiddleware, AuthMiddleware.Checkroles(AccessRoles), UserController.reactivatedUser);

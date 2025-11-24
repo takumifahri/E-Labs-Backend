@@ -27,12 +27,6 @@ ruanganRouter.get('/status/all/realtime',
     PeminjamanRuanganController.GetRoomsRealtimeState
 );
 
-// ✅ SPECIFIC ROUTES HARUS DI ATAS /:id
-ruanganRouter.get('/jadwal',
-    PeminjamanRuanganController.getJadwalRuanganPerBulan
-);
 
-ruanganRouter.get('/:id', 
-    RuanganController.GetRuanganById
-);
+
 export default ruanganRouter;
