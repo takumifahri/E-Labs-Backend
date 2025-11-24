@@ -14,7 +14,8 @@ export enum UploadCategory {
     BARANG = 'barang',
     RUANGAN = 'ruangan',
     DOCUMENTS = 'documents',
-    TEMP = 'temp'
+    TEMP = 'temp',
+    USER = 'user'
 }
 
 // File type configurations
@@ -36,6 +37,12 @@ const FILE_TYPE_CONFIG = {
         mimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
         maxSize: 10 * 1024 * 1024, // 10MB
         extensions: ['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.doc', '.docx', '.txt', '.xls', '.xlsx']
+    },
+    excel: {
+        allowedTypes: /xls|xlsx/,
+        mimeTypes: ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+        maxSize: 10 * 1024 * 1024, // 10MB
+        extensions: ['.xls', '.xlsx']
     }
 };
 
@@ -167,14 +174,14 @@ export class FileHandler {
     static getFileUrlFromPath(filePath: string, baseUrl?: string): string {
         const defaultBaseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3333}`;
         const finalBaseUrl = baseUrl || defaultBaseUrl;
-        
+
         // Extract path after 'storage'
         const storageIndex = filePath.indexOf('/storage/');
         if (storageIndex !== -1) {
             const relativePath = filePath.substring(storageIndex);
             return `${finalBaseUrl}${relativePath}`;
         }
-        
+
         // Fallback: extract filename and category
         const filename = path.basename(filePath);
         const category = filePath.includes('peminjaman/item') ? UploadCategory.PEMINJAMAN_ITEM : UploadCategory.DOCUMENTS;
@@ -301,23 +308,24 @@ export class FileHandler {
 export const uploadMiddlewares = {
     // Profile uploads
     profileImage: FileHandler.createUploadMiddleware(UploadCategory.PROFILE, 'image', 'profile', 1, 'file'),
-    
+
     // Barang uploads - support both 'file' and 'foto_barang'
     barangImage: FileHandler.createUploadMiddleware(UploadCategory.BARANG, 'image', 'barang', 1, 'file'),
     barangImageWithCustomField: FileHandler.createUploadMiddleware(UploadCategory.BARANG, 'image', 'barang', 1, 'foto_barang'),
-    
+
     // Peminjaman uploads
     peminjamanItemDocument: FileHandler.createUploadMiddleware(UploadCategory.PEMINJAMAN_ITEM, 'document', 'doc', 1, 'file'),
     peminjamanRuanganDocument: FileHandler.createUploadMiddleware(UploadCategory.PEMINJAMAN_RUANGAN, 'document', 'doc', 1, 'file'),
-    
+
     // Ruangan uploads
     ruanganImage: FileHandler.createUploadMiddleware(UploadCategory.RUANGAN, 'image', 'ruangan', 1, 'file'),
-    
+
     // General uploads
     document: FileHandler.createUploadMiddleware(UploadCategory.DOCUMENTS, 'document', undefined, 1, 'file'),
     image: FileHandler.createUploadMiddleware(UploadCategory.DOCUMENTS, 'image', undefined, 1, 'file'),
     any: FileHandler.createUploadMiddleware(UploadCategory.DOCUMENTS, 'any', undefined, 1, 'file'),
-    
+
+    excelFile: FileHandler.createUploadMiddleware(UploadCategory.TEMP, 'excel', 'import', 1, 'excelFile'),
     // Multiple files
     multipleImages: FileHandler.createUploadMiddleware(UploadCategory.DOCUMENTS, 'image', undefined, 5, 'files'),
     multipleDocuments: FileHandler.createUploadMiddleware(UploadCategory.DOCUMENTS, 'document', undefined, 5, 'files')

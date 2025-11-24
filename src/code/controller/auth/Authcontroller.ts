@@ -51,7 +51,7 @@ const Register = asyncHandler(async (req: express.Request, res: express.Response
 
     const responseRegist: RegisterResponse = {
         uniqueId: registUser.uniqueId,
-        email: registUser.email,
+        email: registUser.email ?? "",
         nama: registUser.nama,
         roles: registUser.role.nama_role,
         NIM: registUser.NIM ?? undefined,
@@ -124,7 +124,7 @@ const Login = asyncHandler(async (req: express.Request, res: express.Response) =
 
     const loginResponse: LoginResponse = {
         uniqueId: ValidatingUser.uniqueId,
-        email: ValidatingUser.email,
+        email: ValidatingUser.email ?? "",
         nama: ValidatingUser.nama,
         roles: ValidatingUser.role.nama_role,
         NIM: ValidatingUser.NIM ?? undefined,

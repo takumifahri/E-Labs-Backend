@@ -68,10 +68,11 @@ model User {
   id                Int                  @id @default(autoincrement())
   uniqueId          String               @unique @default(cuid())
   roleId            Int                  @default(1)
+  KLP               String?             
   prodiId           Int?
   semester          Int?                
   profil            String?
-  email             String               @unique
+  email             String?               @unique
   nama              String
   NIM               String?
   NIP               String?
@@ -268,6 +269,9 @@ model Peminjaman_Ruangan {
   kegiatan              String?
   dokumen               String?
   token                 String?
+  isLoop                Boolean? @default(false)
+
+
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @updatedAt
   deletedAt             DateTime?

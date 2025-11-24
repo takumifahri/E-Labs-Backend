@@ -82,7 +82,7 @@ const getAllPeminjamanRuangan = asyncHandler(async (req: Request, res: Response,
                 ? {
                     id: pr.accepted_by.id,
                     nama: pr.accepted_by.nama,
-                    email: pr.accepted_by.email,
+                    email: pr.accepted_by.email || "",
                     role: pr.accepted_by.role?.nama_role, // ambil nama_role sebagai string
                 }
                 : null,
@@ -90,9 +90,9 @@ const getAllPeminjamanRuangan = asyncHandler(async (req: Request, res: Response,
                 ? {
                     id: pr.user.id,
                     nama: pr.user.nama,
-                    email: pr.user.email,
-                    NIM: pr.user.NIM,
-                    NIP: pr.user.NIP,
+                    email: pr.user.email || "",
+                    NIM: pr.user.NIM || "",
+                    NIP: pr.user.NIP || "",
                     role: pr.user.role?.nama_role // ambil nama_role sebagai string
                 }
                 : null
@@ -179,7 +179,7 @@ const getDetailPeminjamanRuangan = asyncHandler(async (req: Request, res: Respon
             responden: pr.accepted_by
                 ? {
                     id: pr.accepted_by.id,
-                    email: pr.accepted_by.email,
+                    email: pr.accepted_by.email || "",
                     nama: pr.accepted_by.nama,
                     role: pr.accepted_by.role?.nama_role,
                 }
@@ -188,9 +188,9 @@ const getDetailPeminjamanRuangan = asyncHandler(async (req: Request, res: Respon
                 ? {
                     id: pr.user.id,
                     nama: pr.user.nama,
-                    email: pr.user.email,
-                    NIM: pr.user.NIM,
-                    NIP: pr.user.NIP,
+                    email: pr.user.email || "",
+                    NIM: pr.user.NIM || "",
+                    NIP: pr.user.NIP || "",
                     role: pr.user.role?.nama_role
                 }
                 : null

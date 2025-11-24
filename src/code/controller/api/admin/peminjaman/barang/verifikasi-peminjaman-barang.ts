@@ -79,7 +79,10 @@ const getAllPengajuan = asyncHandler(async (req: Request, res: Response) => {
         return {
             id: p.id,
             kode_peminjaman: p.kode_peminjaman,
-            pengaju: pengajuData,
+            pengaju: {
+                ...pengajuData,
+                email: pengajuData.email ?? '', // Ensure email is always a string
+            },
             status: finalStatus,
             tgl_pinjam: p.tanggal_pinjam,
             dalam_rangka: p.kegiatan || '',

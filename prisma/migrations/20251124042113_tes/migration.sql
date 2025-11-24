@@ -175,6 +175,7 @@ CREATE TABLE "public"."Peminjaman_Ruangan" (
     "tanggal" TIMESTAMP(3),
     "jam_mulai" TIMESTAMP(3),
     "jam_selesai" TIMESTAMP(3),
+    "jam_realisasi_selesai" TIMESTAMP(3),
     "status" "public"."StatusPeminjamanRuangan" NOT NULL,
     "kegiatan" TEXT,
     "dokumen" TEXT,
@@ -213,6 +214,14 @@ CREATE TABLE "public"."Notifikasi" (
     "deletedAt" TIMESTAMP(3),
 
     CONSTRAINT "Notifikasi_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."Tes" (
+    "id" SERIAL NOT NULL,
+    "name" TEXT NOT NULL,
+
+    CONSTRAINT "Tes_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
