@@ -110,16 +110,16 @@ export interface ListPengajuanPeminjamanRuanganResponse {
     responden: {
         id: number;
         nama: string;
-        email: string;
+        email?: string | null;
         role: string;
     } | null;
     user: {
         id: number;
         nama: string;
-        email: string;
-        NIM: string | null;
-        NIP: string | null;
-        role: string;
+        email?: string | null;
+        NIM?: string | null;
+        NIP?: string | null;
+        role?: string;
     } | null;
 
     

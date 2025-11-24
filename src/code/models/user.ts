@@ -31,6 +31,10 @@ export interface CreateUserRequest {
     nama: string;
     email: string;
     password: string;
+    NIM?: string;
+    semester?: number;
+    NIP?: string;
+    profil?: string;
     roleId?: number; // Optional since it has default value 1
 }
 
@@ -49,8 +53,8 @@ export interface UserResponse {
     uniqueId: string;
     nama: string;
     email: string;
-
-    NIM?: string;
+    KLP?: string | null;
+    NIM?: string | null;
     semester?: number;
     profilUrl?: string;
     profil?: string;

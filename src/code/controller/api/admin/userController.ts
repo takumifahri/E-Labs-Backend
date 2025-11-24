@@ -7,12 +7,102 @@ import { HashPassword } from '../../../utils/hash';
 import { uploadMiddlewares, FileHandler, UploadCategory } from '../../../utils/FileHandler';
 import { transporter } from '../../../utils/Mail.config';
 const prisma = new PrismaClient();
-
 const CreateUser = asyncHandler(async (req: express.Request, res: express.Response) => {
-    const { nama, email, password, roleId }: CreateUserRequest = req.body;
+    const { nama, email, password, NIM, semester, NIP, roleId }: CreateUserRequest = req.body;
 
     if (!nama || !email || !password) {
         throw new AppError("Name, email, and password are required", 400);
+    }
+
+    // Check if email already exists
+    const existingUser = await prisma.user.findUnique({
+        where: { email }
+    });
+
+    if (existingUser) {
+        throw new AppError("Email already exists", 400);
+    }
+
+    const uniqueId = `USR-${uuidv4()}`;
+    const hashedPassword = await HashPassword(password);
+
+    // Handle file upload (profil) - nullable
+    let profilFilename: string | null = null;
+    if (req.file) {
+        profilFilename = req.file.filename;
+        console.log(`📸 Profile image uploaded: ${profilFilename}`);
+    }
+
+    // Build data object with optional profil field
+    const userData: any = {
+        uniqueId,
+        nama,
+        email,
+        password: hashedPassword,
+        roleId: roleId || 1,
+        createdAt: new Date(),
+    };
+
+    // Add optional fields only if they exist
+    if (NIM) userData.NIM = NIM;
+    if (semester) userData.semester = semester;
+    if (NIP) userData.NIP = NIP;
+    if (profilFilename) userData.profil = profilFilename;
+
+    const addUser = await prisma.user.create({
+        data: userData,
+        include: { role: true }
+    });
+
+    // Generate profil URL if file was uploaded
+    const profilUrl = profilFilename
+        ? FileHandler.getFileUrl(UploadCategory.PROFILE, profilFilename)
+        : undefined;
+
+    return res.status(201).json({
+        message: "User created successfully",
+        data: {
+            uniqueId: addUser.uniqueId,
+            nama: addUser.nama,
+            email: addUser.email,
+            profil: addUser.profil ?? undefined,
+            profilUrl,
+            role: addUser.role,
+            createdAt: addUser.createdAt
+        },
+        file_info: req.file ? {
+            original_name: req.file.originalname,
+            filename: profilFilename,
+            size: req.file.size,
+            mime_type: req.file.mimetype
+        } : null
+    });
+});
+
+const tambahUser = asyncHandler(async (req: express.Request, res: express.Response) => {
+    const { nama, email, password, NIM, NIP, semester, roleId }: CreateUserRequest = req.body;
+
+    if (!nama || !email || !password || (!NIM && !NIP)) {
+        throw new AppError("Name, email, password, and either NIM or NIP are required", 400);
+    }
+
+    if (roleId === 1) {
+        if (!NIM) {
+            throw new AppError("NIM wajib diisi untuk mahasiswa", 400);
+        }
+        if (NIP) {
+            throw new AppError("Mahasiswa tidak boleh memiliki NIP", 400);
+        }
+    }
+
+    // Jika BUKAN MAHASISWA
+    if (roleId !== 1) {
+        if (!NIP) {
+            throw new AppError("NIP wajib diisi untuk dosen/pengelola/admin", 400);
+        }
+        if (NIM) {
+            throw new AppError("Dosen/pengelola/admin tidak boleh memiliki NIM", 400);
+        }
     }
 
     const uniqueId = `USR-${uuidv4()}`;
@@ -20,12 +110,14 @@ const CreateUser = asyncHandler(async (req: express.Request, res: express.Respon
 
     const addUser = await prisma.user.create({
         data: {
-            uniqueId,
+            uniqueId: `USR-${uuidv4()}`,
             nama,
             email,
             password: hashedPassword,
-            roleId: roleId || 1,
-            createdAt: new Date(),
+            roleId,
+            NIM,
+            NIP,
+            semester,
         },
         include: { role: true }
     });
@@ -41,6 +133,7 @@ const CreateUser = asyncHandler(async (req: express.Request, res: express.Respon
         }
     });
 });
+
 const getUserById = asyncHandler(async (req: express.Request, res: express.Response) => {
     const { uniqueId } = req.params;
 
@@ -73,7 +166,7 @@ const getUserById = asyncHandler(async (req: express.Request, res: express.Respo
         id: user.id,
         uniqueId: user.uniqueId,
         nama: user.nama,
-        email: user.email,
+        email: user.email ?? "",
         NIM: user.NIM ?? undefined,
         semester: user.semester !== null && user.semester !== undefined ? user.semester : undefined,
         profil: user.profil ?? undefined,
@@ -162,7 +255,7 @@ const updateUser = asyncHandler(async (req: express.Request, res: express.Respon
         id: updatedUser.id,
         uniqueId: updatedUser.uniqueId,
         nama: updatedUser.nama,
-        email: updatedUser.email,
+        email: updatedUser.email ?? "",
         NIM: updatedUser.NIM ?? undefined,
         semester: updatedUser.semester !== null && updatedUser.semester !== undefined ? updatedUser.semester : undefined,
         profil: updatedUser.profil ?? undefined,
@@ -223,7 +316,8 @@ const ListUsers = asyncHandler(async (req: express.Request, res: express.Respons
             id: user.id,
             uniqueId: user.uniqueId,
             nama: user.nama,
-            email: user.email,
+            KLP : user.KLP ?? undefined,
+            email: user.email ?? "",
             NIM: user.NIM ?? undefined,
             semester: user.semester !== null && user.semester !== undefined ? user.semester : undefined,
             profil: user.profil ?? undefined,
@@ -488,6 +582,7 @@ const UserController = {
     updateUser,
     deleteUser,
     ListUsers,
+    tambahUser,
 
     deactivatedUser,
     getDashboardStats,

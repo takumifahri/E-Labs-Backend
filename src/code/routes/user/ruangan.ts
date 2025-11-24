@@ -15,10 +15,6 @@ ruanganRouter.get('/',
     RuanganController.GetRuanganMaster
 );
 
-ruanganRouter.get('/:id', 
-    RuanganController.GetRuanganById
-);
-
 ruanganRouter.post('/isAvailable', 
     PeminjamanRuanganController.isRuanganAvailable
 );

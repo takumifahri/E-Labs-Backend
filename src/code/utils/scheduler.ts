@@ -135,7 +135,7 @@ export const initBookingScheduler = () => {
             // 5. KIRIM EMAIL (Diluar transaction biar gak blocking DB kalau SMTP lemot)
             await transporter.sendMail({
                 from: '"Lab Admin" <jrkonveksiemail@gmail.com>',
-                to: user.email,
+                to: user.email || '', // Pastikan email bukan undefined
                 subject: emailSubject,
                 html: emailHtml,
             });
@@ -151,4 +151,170 @@ export const initBookingScheduler = () => {
       console.error('[Scheduler Error] Main loop error:', error);
     }
   });
+};
+
+// ✅ TAMBAHAN: Weekly Schedule Duplicator
+export const initWeeklyScheduler = () => {
+  console.log('🔄 [Weekly Scheduler] Initialized...');
+
+  // Run every Sunday at 23:30 (prepare schedules for next week)
+  cron.schedule('30 23 * * 0', async () => {
+    console.log('⏰ [Weekly Scheduler] Sunday trigger activated');
+    await createNextWeekSchedules();
+  }, {
+    timezone: "Asia/Jakarta"
+  });
+
+  // Run every Monday at 00:30 (backup trigger)
+  cron.schedule('30 0 * * 1', async () => {
+    console.log('⏰ [Weekly Scheduler] Monday backup trigger activated');
+    await createNextWeekSchedules();
+  }, {
+    timezone: "Asia/Jakarta"
+  });
+
+  console.log('✅ Weekly scheduler started! Will run every Sunday at 23:30 and Monday at 00:30');
+};
+
+// Function to create next week schedules from loop schedules
+async function createNextWeekSchedules() {
+  console.log('🔄 [Weekly Scheduler] Creating next week schedules...');
+
+  try {
+    // Get all active loop schedules from this week
+    const currentDate = new Date();
+    const startOfWeek = new Date(currentDate);
+    startOfWeek.setDate(currentDate.getDate() - currentDate.getDay() + 1); // Monday
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6); // Sunday
+
+    const currentLoopSchedules = await prisma.peminjaman_Ruangan.findMany({
+      where: { 
+        isLoop: true,
+        status: { 
+          in: [
+            StatusPeminjamanRuangan.DISETUJUI,
+            StatusPeminjamanRuangan.BERLANGSUNG,
+            StatusPeminjamanRuangan.SELESAI
+          ]
+        },
+        tanggal: {
+          gte: startOfWeek,
+          lte: endOfWeek
+        }
+      },
+      include: {
+        user: { select: { id: true, nama: true, isBlocked: true } },
+        ruangan: { select: { id: true, kode_ruangan: true } },
+        matkul: { select: { id: true, matkul: true } }
+      }
+    });
+
+    console.log(`[Weekly Scheduler] Found ${currentLoopSchedules.length} loop schedules to duplicate`);
+
+    let duplicatedCount = 0;
+    let skippedCount = 0;
+    let blockedUserSkipped = 0;
+
+    for (const schedule of currentLoopSchedules) {
+      // Skip if user is blocked
+      if (schedule.user?.isBlocked) {
+        blockedUserSkipped++;
+        console.log(`[Weekly Scheduler] Skipping blocked user: ${schedule.user.nama}`);
+        continue;
+      }
+
+      // Calculate next week dates
+      const nextWeekDate = new Date(schedule.tanggal!);
+      nextWeekDate.setDate(schedule.tanggal!.getDate() + 7);
+
+      const nextWeekJamMulai = schedule.jam_mulai ? new Date(schedule.jam_mulai.getTime() + (7 * 24 * 60 * 60 * 1000)) : null;
+      const nextWeekJamSelesai = schedule.jam_selesai ? new Date(schedule.jam_selesai.getTime() + (7 * 24 * 60 * 60 * 1000)) : null;
+
+      // Check if next week schedule already exists
+      const existingNextWeek = await prisma.peminjaman_Ruangan.findFirst({
+        where: {
+          ruangan_id: schedule.ruangan_id,
+          user_id: schedule.user_id,
+          matkul_id: schedule.matkul_id,
+          tanggal: {
+            gte: new Date(nextWeekDate.getFullYear(), nextWeekDate.getMonth(), nextWeekDate.getDate()),
+            lt: new Date(nextWeekDate.getFullYear(), nextWeekDate.getMonth(), nextWeekDate.getDate() + 1)
+          },
+          jam_mulai: nextWeekJamMulai
+        }
+      });
+
+      if (existingNextWeek) {
+        skippedCount++;
+        continue;
+      }
+
+      try {
+        await prisma.peminjaman_Ruangan.create({
+          data: {
+            ruangan_id: schedule.ruangan_id,
+            user_id: schedule.user_id,
+            matkul_id: schedule.matkul_id,
+            tanggal: nextWeekDate,
+            jam_mulai: nextWeekJamMulai,
+            jam_selesai: nextWeekJamSelesai,
+            status: StatusPeminjamanRuangan.DISETUJUI, // New schedules start as approved
+            kegiatan: schedule.kegiatan,
+            isLoop: true,
+            accepted_by_id: schedule.accepted_by_id,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }
+        });
+
+        duplicatedCount++;
+        console.log(`[Weekly Scheduler] ✅ ${schedule.ruangan?.kode_ruangan} | ${schedule.user?.nama} | ${nextWeekDate.toISOString().split('T')[0]}`);
+
+      } catch (error) {
+        console.log(`[Weekly Scheduler] ❌ Error duplicating: ${error}`);
+      }
+    }
+
+    console.log(`🎉 [Weekly Scheduler] Completed! Created ${duplicatedCount} schedules, skipped ${skippedCount} existing, ${blockedUserSkipped} blocked users`);
+
+    // Send notification to admins about weekly duplication
+    const adminUsers = await prisma.user.findMany({
+      where: { roleId: { in: [3, 4] } }, // pengelola & superadmin
+      select: { id: true }
+    });
+
+    for (const admin of adminUsers) {
+      await prisma.notifikasi.create({
+        data: {
+          user_id: admin.id,
+          judul: "Jadwal Mingguan Diperbaharui",
+          pesan: `${duplicatedCount} jadwal ruangan berhasil diduplikasi untuk minggu depan. ${blockedUserSkipped} user terblokir dilewati.`,
+          send_at: new Date()
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('[Weekly Scheduler] Error:', error);
+  }
+}
+
+// Function to manually trigger next week creation (for testing)
+export async function triggerManualWeeklyDuplication() {
+  console.log('🔧 [Manual Trigger] Weekly duplication');
+  await createNextWeekSchedules();
+}
+
+// ✅ FUNCTION UTAMA UNTUK MEMULAI SEMUA SCHEDULER
+export const initAllSchedulers = () => {
+  console.log('🚀 [Scheduler] Starting all schedulers...');
+  
+  // Start booking expiry scheduler (existing)
+  initBookingScheduler();
+  
+  // Start weekly schedule duplicator (new)
+  initWeeklyScheduler();
+  
+  console.log('✅ [Scheduler] All schedulers started successfully!');
 };
