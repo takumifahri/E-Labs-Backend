@@ -6,7 +6,8 @@ const corsOptions: cors.CorsOptions = {
         'http://localhost:5137', 
         'https://e-labs-backup.vercel.app', // ✅ Hapus trailing slash
         'https://elabs-api.takumifahri.my.id', // ✅ Hapus trailing slash
-        'https://backend-takumifahri.vercel.app' // ✅ Hapus trailing slash
+        'https://backend-takumifahri.vercel.app', // ✅ Hapus trailing slash
+        'https://elabs.takumifahri.my.id'
     ],
     methods: [
         'GET', 
