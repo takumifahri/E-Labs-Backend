@@ -15,6 +15,11 @@ ruanganRouter.get('/',
     RuanganController.GetRuanganMaster
 );
 
+// ✅ ROUTE BARU: Get Jadwal Ruangan per Bulan (dengan query parameters)
+ruanganRouter.get('/jadwal',
+    PeminjamanRuanganController.getJadwalRuanganPerBulan
+);
+
 ruanganRouter.post('/isAvailable', 
     PeminjamanRuanganController.isRuanganAvailable
 );
@@ -26,7 +31,5 @@ ruanganRouter.get('/status/realtime',
 ruanganRouter.get('/status/all/realtime',
     PeminjamanRuanganController.GetRoomsRealtimeState
 );
-
-
 
 export default ruanganRouter;
