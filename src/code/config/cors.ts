@@ -4,7 +4,8 @@ const corsOptions: cors.CorsOptions = {
     origin: [
         'http://localhost:3000', 
         'http://localhost:5137', 
-        
+        'https://e-labs-backup.vercel.app/',
+        'https://elabs-api.takumifahri.my.id/',
         'https://backend-takumifahri.vercel.app/'
     ],
     methods: [
