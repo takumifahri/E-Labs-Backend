@@ -10,9 +10,11 @@ import { error } from "node:console";
 import cookieParser from "cookie-parser";
 import { initAllSchedulers } from "../code/utils/scheduler";
 const app = express();
+app.use(cors(corsOptions));
+
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors(corsOptions))
+app.use(express.urlencoded({ extended: true }));
 
 app.use('/storage', express.static(path.join(process.cwd(), 'src', 'code', 'storage')));
 
