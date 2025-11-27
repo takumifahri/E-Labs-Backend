@@ -211,6 +211,7 @@ model Peminjaman_Item {
   kode_peminjaman       String                  @unique
   tanggal_pinjam        DateTime
   tanggal_kembali       DateTime?
+  jam_realisasi_selesai DateTime?
   status                StatusPeminjamanItem
   kegiatan              String
   createdAt             DateTime                @default(now())
@@ -237,6 +238,7 @@ model Peminjaman_Handset {
   kode_peminjaman       String     @unique
   tanggal_pinjam        DateTime
   tanggal_kembali       DateTime?
+  jam_realisasi_selesai DateTime?
   status                StatusPeminjamanHandset
   kegiatan              String
   dokumen               String?

@@ -10,16 +10,23 @@ const barangImageUpload = FileHandler.createUploadMiddleware(UploadCategory.BARA
 
 const Role = ['superadmin', 'pengelola', 'mahasiswa', 'dosen'];
 
-verfikasi_router.get('/peminjaman-handset/list', 
-    authMiddleware, 
-    AuthMiddleware.Checkroles(Role),
-    VerifikasiController.getAllPengajuan
-);
 
-verfikasi_router.patch('/peminjaman-handset/:id', 
+verfikasi_router.patch('/peminjaman-barang/:id', 
     authMiddleware, 
     AuthMiddleware.Checkroles(['superadmin', 'pengelola']),
     VerifikasiController.verifikasiPeminjamanHandset
+);
+
+verfikasi_router.patch('/peminjaman-barang/selesai/:id',
+    authMiddleware,
+    AuthMiddleware.Checkroles(['superadmin', 'pengelola']),
+    VerifikasiController.SelesaiPeminjamanBarang
+);
+
+verfikasi_router.patch('/peminjaman-barang/tolak/:id',
+    authMiddleware,
+    AuthMiddleware.Checkroles(['superadmin', 'pengelola']),
+    VerifikasiController.tolakPeminjamanHandset
 );
 
 verfikasi_router.get('/peminjaman-ruangan/list',
@@ -42,13 +49,13 @@ verfikasi_router.patch('/peminjaman-ruangan/:id',
 
 verfikasi_router.patch('/peminjaman-ruangan/selesai/:id',
     authMiddleware,
-    AuthMiddleware.Checkroles(Role),
+    AuthMiddleware.Checkroles(['superadmin', 'pengelola']),
     RuanganController.SelesaiRuangan
 );
 
 verfikasi_router.patch('/peminjaman-ruangan/cancel/:id',
     authMiddleware,
-    AuthMiddleware.Checkroles(Role),
+    AuthMiddleware.Checkroles(['superadmin', 'pengelola']),
     RuanganController.UpdateRuanganCancle
 );
 

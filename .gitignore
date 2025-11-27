@@ -7,3 +7,6 @@ vercel.json
 Dockerfile
 docker-compose.yml
 .env.docker
+
+nginx
+nginx/nginx.conf

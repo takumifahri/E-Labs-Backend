@@ -4,19 +4,22 @@ import PeminjamanItemController from "../../controller/api/user/Peminjaman/terja
 import { uploadMiddlewares, FileHandler, UploadCategory } from '../../utils/FileHandler';
 import PeminajmanItemTidakTerJadwaLController from "../../controller/api/user/Peminjaman/tidak-terjadwal/peminjamanItemController";
 import PeminjamanRuanganController from "../../controller/api/user/Peminjaman/terjadwal/RuanganController";
+import peminjamanBarangController from "../../controller/api/user/Peminjaman/terjadwal/BarangController";
 
 const PeminjamanRouter = Router();
 const PeminjamanUpload = FileHandler.createUploadMiddleware(UploadCategory.PEMINJAMAN_ITEM, 'document', 'barang', 1, 'Dokumen');
 const PeminjamanRuanganUpload = FileHandler.createUploadMiddleware(UploadCategory.PEMINJAMAN_RUANGAN, 'document', 'doc', 1, 'dokumen');
-
 // Grouping route
 // Peminjaman item
-PeminjamanRouter.post("/barang/pengajuan", AuthMiddleware.authMiddleware, PeminjamanUpload, PeminjamanItemController.AjuanPeminjamanItems);
-PeminjamanRouter.post('/test', (req, res) => {
-    res.json({ message: "Peminjaman route is working!" });
-});
+// PeminjamanRouter.post("/barang/pengajuan", AuthMiddleware.authMiddleware, PeminjamanUpload, PeminjamanItemController.AjuanPeminjamanItems);
+// PeminjamanRouter.post('/test', (req, res) => {
+//     res.json({ message: "Peminjaman route is working!" });
+// });
+PeminjamanRouter.post("/barang/terjadwal", PeminjamanUpload, peminjamanBarangController.createPeminjamanBarang);
+PeminjamanRouter.get("/barang/terjadwal/list", PeminjamanUpload, peminjamanBarangController.ListPengajuanBarangResponse);
+
 // Tidak terjadwal. dia tidak perlu login
-PeminjamanRouter.post("/barang/ajuan-tidak-terjadwal", PeminajmanItemTidakTerJadwaLController.AjuanPeminjamanItemTidakTerjadwal);
+PeminjamanRouter.post("/barang/ajuan-tidak-terjadwal", PeminajmanItemTidakTerJadwaLController.AjuanPeminjamanItemTidakTerjadwal, PeminjamanUpload);
 
 // Peminjaman ruangan
 // Peminjaman ruangan tidak perlu login
