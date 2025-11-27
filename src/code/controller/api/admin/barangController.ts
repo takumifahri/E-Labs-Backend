@@ -8,7 +8,7 @@ import { uploadMiddlewares, FileHandler, UploadCategory } from '../../../utils/F
 const prisma = new PrismaClient({
     datasources: {
         db: {
-            url: process.env.DATABASE_URL
+            url: process.env.LOCAL_DATABASE_URL || process.env.DATABASE_URL
         }
     },
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
@@ -660,56 +660,98 @@ const getAllKategori = asyncHandler(async (req: Request, res: Response, next: Ne
 
 //     res.status(200).json(result);
 // });
+// const getAllBarang = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+//     const { kategori_id, status, kondisi, search } = req.query;
+//     const filters = { kategori_id, status, kondisi, search };
+//     const cacheKey = getCacheKey('barang:list:all', filters);
+
+//     // Try cache first
+//     const cached = getCache(barangCache, cacheKey);
+//     if (cached) {
+//         const dataWithUrls = cached.data.map((item: any) => ({
+//             ...item,
+//             foto_barang_url: item.foto_barang ? `uploads/barang/${item.foto_barang}` : null
+//         }));
+
+//         return res.status(200).json({
+//             message: "Barang retrieved successfully",
+//             data: dataWithUrls,
+//             cached: true,
+//             cache_timestamp: new Date().toISOString(),
+//             cache_stats: {
+//                 hits: barangCache.get(cacheKey)?.hits || 0,
+//                 total_cached_queries: barangCache.size
+//             }
+//         });
+//     }
+
+//     const where = buildWhereClause({ kategori_id, status, kondisi, search });
+
+//     // Ambil semua barang tanpa pagination
+//     const barangs = await prisma.barang.findMany({
+//         where,
+//         ...optimizedBarangQuery,
+//         orderBy: { createdAt: 'asc' }
+//     });
+
+//     const barangsWithUrls = barangs.map(barang => ({
+//         ...barang,
+//         foto_barang_url: barang.foto_barang ? `uploads/barang/${barang.foto_barang}` : null
+//     }));
+
+//     const result = {
+//         message: "Barang retrieved successfully",
+//         data: barangsWithUrls,
+//         cached: false,
+//         query_time: new Date().toISOString()
+//     };
+
+//     setCache(barangCache, cacheKey, { ...result, data: barangs });
+
+//     res.status(200).json(result);
+// });
+
 const getAllBarang = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    // Tambahkan Random ID di log untuk memastikan ini request baru
+    const requestId = Math.floor(Math.random() * 1000);
+    console.log(`[${requestId}] 🔥 REQUEST MASUK: getAllBarang`);
+
     const { kategori_id, status, kondisi, search } = req.query;
-    const filters = { kategori_id, status, kondisi, search };
-    const cacheKey = getCacheKey('barang:list:all', filters);
-
-    // Try cache first
-    const cached = getCache(barangCache, cacheKey);
-    if (cached) {
-        const dataWithUrls = cached.data.map((item: any) => ({
-            ...item,
-            foto_barang_url: item.foto_barang ? `uploads/barang/${item.foto_barang}` : null
-        }));
-
-        return res.status(200).json({
-            message: "Barang retrieved successfully",
-            data: dataWithUrls,
-            cached: true,
-            cache_timestamp: new Date().toISOString(),
-            cache_stats: {
-                hits: barangCache.get(cacheKey)?.hits || 0,
-                total_cached_queries: barangCache.size
-            }
-        });
-    }
-
     const where = buildWhereClause({ kategori_id, status, kondisi, search });
 
-    // Ambil semua barang tanpa pagination
+    // Query DB
     const barangs = await prisma.barang.findMany({
         where,
-        ...optimizedBarangQuery,
-        orderBy: { createdAt: 'asc' }
+        orderBy: { createdAt: 'asc' },
+        include: { kategori: true }
     });
+
+    // --- DEBUGGING BRUTAL ---
+    // Cari Laptop Dell (ID 1)
+    const laptop = barangs.find(b => b.id === 1);
+    if (laptop) {
+        console.log(`[${requestId}] 💻 STOK DI DB (Prisma):`, laptop.jumlah);
+        console.log(`[${requestId}] ℹ️ STATUS DI DB (Prisma):`, laptop.status);
+    } else {
+        console.log(`[${requestId}] ❌ Laptop Dell ID 1 tidak ditemukan di query!`);
+    }
+    // ------------------------
 
     const barangsWithUrls = barangs.map(barang => ({
         ...barang,
         foto_barang_url: barang.foto_barang ? `uploads/barang/${barang.foto_barang}` : null
     }));
 
-    const result = {
+    res.status(200).json({
         message: "Barang retrieved successfully",
         data: barangsWithUrls,
-        cached: false,
-        query_time: new Date().toISOString()
-    };
-
-    setCache(barangCache, cacheKey, { ...result, data: barangs });
-
-    res.status(200).json(result);
+        total: barangs.length
+    });
 });
+
+
+
+
 // Enhanced getBarangById to include image URL
 const getBarangById = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
@@ -1012,8 +1054,19 @@ const getDashboardStats = asyncHandler(async (req: Request, res: Response, next:
     });
 });
 
+const getAllProducts = async (req: Request, res: Response) => {
+  try {
+    const products = await prisma.barang.findMany();
+    res.json(products);
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan saat mengambil produk' });
+  }
+};
+
 const BarangController = {
     getAllBarang,
+    getAllProducts,
     getBarangById,
     createBarang,
     updateBarang,
