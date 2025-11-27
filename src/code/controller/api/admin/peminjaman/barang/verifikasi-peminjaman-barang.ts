@@ -551,20 +551,19 @@ const SelesaiPeminjamanBarang = asyncHandler(async (req: Request, res: Response,
 
 const selesaikanPeminjamanHandset = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    // const { catatan } = req.body; // Uncomment jika ingin simpan catatan di header
+    
+    console.log(`\n🔥🔥🔥 [START] Selesaikan Peminjaman ID: ${id} 🔥🔥🔥`);
 
     if (!id) throw new AppError("ID peminjaman is required", 400);
 
-    // 1. Cek Admin yang memproses
     const adminUser = await prisma.user.findUnique({
         where: { email: req.user?.email }
     });
     if (!adminUser) throw new AppError("User not found", 404);
 
-    // 2. Mulai Transaksi (Safety First)
     const result = await prisma.$transaction(async (tx) => {
         
-        // A. Ambil Data Peminjaman
+        // 1. Ambil Data
         const peminjaman = await tx.peminjaman_Handset.findUnique({
             where: { id: Number(id) },
             include: { peminjaman_items: true }
@@ -572,45 +571,51 @@ const selesaikanPeminjamanHandset = asyncHandler(async (req: Request, res: Respo
 
         if (!peminjaman) throw new AppError("Peminjaman not found", 404);
 
-        // Validasi Status
+        // [DEBUG 1] Cek Status Header
+        console.log(`[DEBUG] Status Header saat ini: ${peminjaman.status}`);
+
+        // Validasi
         if (peminjaman.status === StatusPeminjamanHandset.SELESAI) {
             throw new AppError("Peminjaman ini sudah selesai sebelumnya", 400);
         }
         
-        // Pastikan hanya yang statusnya DISETUJUI/SEBAGIAN_DISETUJUI/DIPINJAM yang bisa diselesaikan
-        // (Opsional, tapi praktik bagus biar yang masih 'DIAJUKAN' gak bisa langsung 'SELESAI')
-        if (peminjaman.status === StatusPeminjamanHandset.DIAJUKAN || peminjaman.status === StatusPeminjamanHandset.DITOLAK) {
-             throw new AppError("Hanya peminjaman yang sedang berjalan yang bisa diselesaikan", 400);
-        }
+        // [DEBUG 2] Cek Jumlah Item
+        console.log(`[DEBUG] Ditemukan ${peminjaman.peminjaman_items.length} item dalam peminjaman ini.`);
 
-        // B. Loop Item
+        // 2. Loop Item
         for (const item of peminjaman.peminjaman_items) {
             
-            // LOGIC PENTING: Hanya barang yang statusnya DIPINJAM yang stoknya dikembalikan
+            // [DEBUG 3] Cek Status PER ITEM (Ini Kuncinya!)
+            console.log(`👉 [DEBUG] Cek Item ID: ${item.id} | Barang ID: ${item.barang_id} | Status DB: ${item.status}`);
+
+            // LOGIC: Hanya proses jika statusnya DIPINJAM
             if (item.status === StatusPeminjamanItem.DIPINJAM) {
                 
-                // 1. Tambah Stok Barang (Return to Inventory)
+                console.log(`✅ [ACTION] Mengembalikan Stok untuk Item ID: ${item.id} (+${item.jumlah})`);
+
+                // 1. Tambah Stok
                 await tx.barang.update({
                     where: { id: item.barang_id },
-                    data: {
-                        jumlah: { increment: item.jumlah } 
-                    }
+                    data: { jumlah: { increment: item.jumlah } }
                 });
 
                 // 2. Update Status Item
                 await tx.peminjaman_Item.update({
                     where: { id: item.id },
                     data: {
-                        status: StatusPeminjamanItem.DIKEMBALIKAN,
+                        status: StatusPeminjamanItem.DIKEMBALIKAN, // Pastikan enum ini ada
                         jam_realisasi_selesai: new Date(),
                         tanggal_kembali: new Date(),
                         accepted_by_id: adminUser.id,
                     }
                 });
+            } else {
+                // [DEBUG 4] Alasan Skip
+                console.log(`❌ [SKIP] Item ID: ${item.id} DILEWATI. Alasan: Status '${item.status}' !== '${StatusPeminjamanItem.DIPINJAM}'`);
             }
         }
 
-        // C. Update Header Peminjaman
+        // 3. Update Header
         const updatedHeader = await tx.peminjaman_Handset.update({
             where: { id: Number(id) },
             data: {
@@ -618,13 +623,11 @@ const selesaikanPeminjamanHandset = asyncHandler(async (req: Request, res: Respo
                 jam_realisasi_selesai: new Date(),
                 tanggal_kembali: new Date(),
                 accepted_by_id: adminUser.id,
-                // catatan: catatan // Masukkan jika ada input catatan
             },
-            include: {
-                peminjaman_items: true // Return data items biar FE bisa lihat update-nya
-            }
+            include: { peminjaman_items: true }
         });
 
+        console.log(`🔥🔥🔥 [END] Transaksi Selesai 🔥🔥🔥\n`);
         return updatedHeader;
     });
 
