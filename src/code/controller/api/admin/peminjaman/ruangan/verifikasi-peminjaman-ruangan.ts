@@ -290,12 +290,6 @@ const verifikasiAjuanPeminjamanRuangan = asyncHandler(async (req: Request, res: 
             tabel_terkait: 'Peminjaman_Ruangan'
         });
 
-        // ... (Kode Kirim Email Lanjutkan Saja) ...
-        if (pengaju?.email) {
-             // ... logic email ...
-             // (Copy paste logic email kamu yang lama di sini)
-        }
-
         res.status(200).json({
             status: 'success',
             message: 'Peminjaman ruangan verified successfully and email sent',
