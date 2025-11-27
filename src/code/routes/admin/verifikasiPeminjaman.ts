@@ -29,6 +29,12 @@ verfikasi_router.patch('/peminjaman-barang/selesai/:id',
     VerifikasiController.selesaikanPeminjamanHandset
 );
 
+verfikasi_router.patch('/peminjaman-barang/tolak/:id',
+    authMiddleware,
+    AuthMiddleware.Checkroles(['superadmin', 'pengelola']),
+    VerifikasiController.tolakPeminjamanHandset
+);
+
 verfikasi_router.get('/peminjaman-ruangan/list',
     authMiddleware,
     AuthMiddleware.Checkroles(Role),

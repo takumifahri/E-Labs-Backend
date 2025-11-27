@@ -14,9 +14,6 @@ async function runSeeds() {
     console.log("\n3️⃣ Running ruangan seed...");
     await import('./ruanganSeed');
 
-    console.log("\n5️⃣ Running jadwal mata kuliah with ruangan seed...");
-    await import('./jadwalMatkulWithRuangan');
-
     console.log("\n🎉 All seeds completed successfully!");
   } catch (error) {
     console.error("❌ Seeding failed:", error);

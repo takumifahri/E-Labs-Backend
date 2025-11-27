@@ -726,8 +726,6 @@ const getAllBarang = asyncHandler(async (req: Request, res: Response, next: Next
         include: { kategori: true }
     });
 
-    // --- DEBUGGING BRUTAL ---
-    // Cari Laptop Dell (ID 1)
     const laptop = barangs.find(b => b.id === 1);
     if (laptop) {
         console.log(`[${requestId}] 💻 STOK DI DB (Prisma):`, laptop.jumlah);

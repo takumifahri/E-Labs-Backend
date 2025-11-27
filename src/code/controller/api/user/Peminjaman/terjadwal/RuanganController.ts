@@ -1261,9 +1261,17 @@ const GetStatusRuanganRealtime = asyncHandler(async (req: Request, res: Response
     });
 });
 
-const GetRoomsRealtimeState = (req: Request, res: Response) => {
-    const data = RoomManager.getAllRooms(); 
-    return res.json({ success: true, data });
+// Di file controller ruangan kamu
+
+const GetRoomsRealtimeState = async (req: Request, res: Response) => {
+    try {
+        const data = await RoomManager.getAllRooms(); 
+        
+        return res.json({ success: true, data });
+    } catch (error) {
+        console.error("Error fetching rooms:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
 };
 
 const getJadwalRuanganPerBulan = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
@@ -1367,7 +1375,6 @@ const PeminjamanRuanganController = {
   getAllRuangan,
   getDetailRuangan,
   GetRoomsRealtimeState,
-
   getListPengajuanRuanganTerjadwal,
   isRuanganAvailable,
   getJadwalRuanganPerBulan
