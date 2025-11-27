@@ -65,5 +65,12 @@ verfikasi_router.patch('/peminjaman-ruangan/cancel/:id',
     RuanganController.UpdateRuanganCancle
 );
 
+verfikasi_router.patch('/peminjaman-ruangan/fiksasi/:id',
+    authMiddleware,
+    AuthMiddleware.Checkroles(['superadmin', 'pengelola']),
+    verifikasiPeminjamanRuanganController.finalisasiPeminjaman
+);
+
+
 
 export default verfikasi_router;

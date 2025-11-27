@@ -1114,7 +1114,7 @@ const SelesaiRuangan = asyncHandler(async (req: Request, res: Response) => {
     });
 
     if (!existingBooking) throw new AppError("Peminjaman not found", 404);
-    if (existingBooking.status !== StatusPeminjamanRuangan.DISETUJUI) {
+    if (existingBooking.status !== StatusPeminjamanRuangan.BERLANGSUNG) {
         throw new AppError("Only bookings with status 'DISETUJUI' can be marked as 'SELESAI'", 400);
     }
 

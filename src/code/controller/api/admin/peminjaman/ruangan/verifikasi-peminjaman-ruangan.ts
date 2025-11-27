@@ -308,10 +308,72 @@ const verifikasiAjuanPeminjamanRuangan = asyncHandler(async (req: Request, res: 
         await prisma.$disconnect();
     }
 });
+
+const finalisasiPeminjaman = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+    const { aksi } = req.body; // aksi: 'FIKSASI' atau 'CANCEL'
+    const peminjamanId = parseInt(id);
+
+    // Validasi ID
+    if (!peminjamanId || isNaN(peminjamanId)) {
+        throw new AppError('Invalid peminjaman ID', 400);
+    }
+
+    if (!aksi || (aksi !== 'FIKSASI' && aksi !== 'CANCEL')) {
+        throw new AppError('Aksi harus FIKSASI atau CANCEL', 400);
+    }
+
+    try {
+        // Ambil data peminjaman
+        const peminjaman = await prisma.peminjaman_Ruangan.findUnique({
+            where: { id: peminjamanId }
+        });
+
+        if (!peminjaman) {
+            throw new AppError('Peminjaman not found', 404);
+        }
+
+        let statusUpdate: PeminjamanRuanganStatus;
+        let message: string;
+
+        if (aksi === 'FIKSASI') {
+            statusUpdate = PeminjamanRuanganStatus.BERLANGSUNG;
+            message = 'Peminjaman ruangan status updated to BERLANGSUNG';
+        } else {
+            statusUpdate = PeminjamanRuanganStatus.DIBATALKAN;
+            message = 'Peminjaman ruangan status updated to DIBATALKAN';
+        }
+
+        // Update status peminjaman
+        const updatedPeminjaman = await prisma.peminjaman_Ruangan.update({
+            where: { id: peminjamanId },
+            data: { status: statusUpdate }
+        });
+
+        // Integrasi dengan socket.io untuk update realtime status ruangan
+        const io = req.app.get('socketio');
+        if (io) {
+            await RoomManager.updateRoomStatus(io, peminjaman.ruangan_id, 'REFRESH');
+        }
+
+        res.status(200).json({
+            status: 'success',
+            message,
+            data: updatedPeminjaman
+        });
+
+    } catch (error) {
+        throw new AppError(`Failed to update peminjaman status, error: ${error}`, 500);
+    } finally {
+        await prisma.$disconnect();
+    }
+});
+
 const verifikasiPeminjamanRuanganController = {
     getAllPeminjamanRuangan,
     getDetailPeminjamanRuangan,
-    verifikasiAjuanPeminjamanRuangan
+    verifikasiAjuanPeminjamanRuangan,
+    finalisasiPeminjaman
 }
 
 export default verifikasiPeminjamanRuanganController;
