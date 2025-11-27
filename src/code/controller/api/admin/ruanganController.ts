@@ -1127,17 +1127,23 @@ const SelesaiRuangan = asyncHandler(async (req: Request, res: Response) => {
         }
     });
 
-    // 3. Update Ruangan Fisik di DB
+    // Update Ruangan Fisik di DB (Opsional, tapi bagus untuk konsistensi DB)
     if (existingBooking.ruangan_id) {
         await prisma.ruangan.update({
             where: { id: existingBooking.ruangan_id },
             data: { status: StatusRuangan.KOSONG, updatedAt: new Date() }
         });
-    }
-    const io = req.app.get('socketio'); 
-    await RoomManager.updateRoomStatus(io, existingBooking.ruangan_id, 'EARLY_RELEASE');
 
-    clearAllRuanganCaches();
+        // --- [FIX]: PANGGIL SOCKET DISINI ---
+        const io = req.app.get('socketio'); // Pastikan di server.ts ada app.set('socketio', io)
+        if (io) {
+            await RoomManager.updateRoomStatus(io, existingBooking.ruangan_id, 'EARLY_RELEASE');
+        } else {
+            console.error("Socket IO instance not found in request app");
+        }
+    }
+
+    clearAllRuanganCaches(); // Jika pakai redis/cache lain
     setImmediate(() => prewarmRuanganCaches());
 
     return res.status(200).json({

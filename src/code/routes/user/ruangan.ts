@@ -27,6 +27,9 @@ ruanganRouter.get('/status/all/realtime',
     PeminjamanRuanganController.GetRoomsRealtimeState
 );
 
+ruanganRouter.get('/jadwal',
+    PeminjamanRuanganController.getJadwalRuanganPerBulan
+);
 
 
 export default ruanganRouter;

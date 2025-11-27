@@ -58,3 +58,4 @@ server.listen(PORT, () => {
         console.log(`Running at https://${config.host}:${PORT}`);
     }
 });
+

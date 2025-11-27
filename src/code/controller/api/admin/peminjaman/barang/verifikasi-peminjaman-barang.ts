@@ -18,135 +18,187 @@ const prisma = new PrismaClient({
 
 const verifikasiPeminjamanHandset = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { status, items, catatan } = req.body; // status (untuk bulk), items (untuk partial)
+    // status: untuk bulk action (DISETUJUI/DITOLAK)
+    // items: untuk partial action per item
+    const { status, items, catatan } = req.body; 
 
     if (!id) throw new AppError("ID peminjaman is required", 400);
 
-    // 1. Cari User Verifikator (Admin)
+    // 1. Cari User Verifikator (Admin) berdasarkan token/session
     const adminUser = await prisma.user.findUnique({
         where: { email: req.user?.email }
     });
     if (!adminUser) throw new AppError("Admin user not found", 404);
 
-    // 2. Mulai Transaksi Database (Supaya Aman)
+    // 2. Mulai Transaksi Database
     const result = await prisma.$transaction(async (tx) => {
         
-        // A. Ambil Data Peminjaman saat ini + Data Barang
+        // A. Ambil Data Peminjaman Header beserta Items dan Stok Barang saat ini
         const peminjaman = await tx.peminjaman_Handset.findUnique({
             where: { id: Number(id) },
             include: { 
                 peminjaman_items: {
-                    include: { barang: true } // Penting: Ambil data stok barang terkini
+                    include: { barang: true } // Include barang untuk cek stok
                 } 
             }
         });
 
         if (!peminjaman) throw new AppError("Peminjaman not found", 404);
 
-        // B. Tentukan Items mana yang mau diproses dan status tujuannya
-        // Kita ubah format input (baik bulk maupun per-item) menjadi array standar biar logic-nya satu pintu.
+        // B. Normalisasi Input (Mapping target status untuk setiap item)
         let itemsToProcess: { id: number; targetStatus: StatusPeminjamanItem }[] = [];
 
-        if (items && items.length > 0) {
-            // CASE 1: Verifikasi Per-Item (Partial)
+        if (items && Array.isArray(items) && items.length > 0) {
+            // CASE 1: Verifikasi Partial (Per Item dikirim dari frontend)
             itemsToProcess = items.map((i: any) => ({
                 id: i.id,
-                targetStatus: i.status
+                targetStatus: i.status // Pastikan frontend kirim status yang valid (DIPINJAM/DITOLAK)
             }));
         } else if (status) {
-            // CASE 2: Verifikasi Global (Bulk Approve/Reject)
-            let bulkTargetStatus: StatusPeminjamanItem;
-            if (status === StatusPeminjamanHandset.DISETUJUI) bulkTargetStatus = StatusPeminjamanItem.DIPINJAM;
-            else if (status === StatusPeminjamanHandset.DITOLAK) bulkTargetStatus = StatusPeminjamanItem.DITOLAK;
-            else throw new AppError("Status bulk tidak valid untuk verifikasi", 400);
+            // CASE 2: Verifikasi Bulk (Tombol Setuju/Tolak Semua di Header)
+            let bulkTargetStatusItem: StatusPeminjamanItem;
 
+            // Mapping Status Header ke Status Item
+            if (status === StatusPeminjamanHandset.DISETUJUI) {
+                bulkTargetStatusItem = StatusPeminjamanItem.DIPINJAM;
+            } else if (status === StatusPeminjamanHandset.DITOLAK) {
+                bulkTargetStatusItem = StatusPeminjamanItem.DITOLAK;
+            } else {
+                // Jika status lain (misal DIBATALKAN/SELESAI), anggap tidak ada perubahan stok otomatis di endpoint ini
+                throw new AppError("Status bulk tidak valid untuk verifikasi awal", 400);
+            }
+
+            // Ambil semua item di peminjaman ini untuk diproses
             itemsToProcess = peminjaman.peminjaman_items.map((pi) => ({
                 id: pi.id,
-                targetStatus: bulkTargetStatus
+                targetStatus: bulkTargetStatusItem
             }));
         } else {
-            throw new AppError("Harus kirim 'status' (global) atau 'items' (partial)", 400);
+            throw new AppError("Harus menyertakan 'status' (global) atau 'items' (partial)", 400);
         }
 
-        // C. Proses Loop Setiap Item
+        // C. Proses Loop Setiap Item (Logika Stok & Update Status)
         for (const inputItem of itemsToProcess) {
+            // Ambil data item asli dari hasil query di atas
             const dbItem = peminjaman.peminjaman_items.find(pi => pi.id === inputItem.id);
-            if (!dbItem) continue; // Skip jika item tidak valid
+            
+            if (!dbItem) continue; // Skip jika ID item tidak ditemukan di peminjaman ini
 
-            // LOGIKA 1: Jika tujuannya MENYETUJUI (DIPINJAM)
+            // --- LOGIKA PENGURANGAN STOK ---
+            // Syarat kurangi stok:
+            // 1. Target status barunya adalah DIPINJAM
+            // 2. Status sebelumnya BUKAN DIPINJAM (Idempotency: supaya tidak double decrement kalau diklik 2x)
             if (inputItem.targetStatus === StatusPeminjamanItem.DIPINJAM) {
-                // Cek apakah item ini SUDAH dipinjam sebelumnya? (biar stok gak kepotong 2x)
-                if (dbItem.status === StatusPeminjamanItem.DIPINJAM) continue;
+                
+                if (dbItem.status !== StatusPeminjamanItem.DIPINJAM) {
+                    
+                    // Cek ketersediaan stok
+                    if (dbItem.barang.jumlah < dbItem.jumlah) {
+                        throw new AppError(
+                            `Stok tidak cukup untuk ${dbItem.barang.nama_barang}. Tersedia: ${dbItem.barang.jumlah}, Diminta: ${dbItem.jumlah}`, 
+                            400
+                        );
+                    }
 
-                // Cek Stok Cukup atau Tidak
-                if (dbItem.barang.jumlah < dbItem.jumlah) {
-                    throw new AppError(`Gagal: Stok ${dbItem.barang.nama_barang} sisa ${dbItem.barang.jumlah}, diminta ${dbItem.jumlah}`, 400);
+                    // UPDATE BARANG: Kurangi Stok
+                    await tx.barang.update({
+                        where: { id: dbItem.barang_id },
+                        data: { 
+                            jumlah: { decrement: dbItem.jumlah },
+                            // Opsional: Jika stok habis, ubah status barang jadi TIDAK_TERSEDIA?
+                            // status: (dbItem.barang.jumlah - dbItem.jumlah === 0) ? 'TIDAK_TERSEDIA' : undefined 
+                        }
+                    });
                 }
-
-                // KURANGI STOK (Atomic Decrement)
-                await tx.barang.update({
+            } 
+            // --- LOGIKA PENGEMBALIAN STOK (Jika Dibatalkan/Ditolak setelah Disetujui) ---
+            // Jika sebelumnya DIPINJAM, lalu diubah jadi DITOLAK/DIBATALKAN, stok harus balik.
+            else if (
+                (inputItem.targetStatus === StatusPeminjamanItem.DITOLAK || inputItem.targetStatus === StatusPeminjamanItem.DIKEMBALIKAN) && 
+                dbItem.status === StatusPeminjamanItem.DIPINJAM
+            ) {
+                 await tx.barang.update({
                     where: { id: dbItem.barang_id },
-                    data: { jumlah: { decrement: dbItem.jumlah } }
+                    data: { jumlah: { increment: dbItem.jumlah } }
                 });
             }
 
-            // LOGIKA 2: Update Status Item
+            // UPDATE STATUS ITEM
             await tx.peminjaman_Item.update({
                 where: { id: inputItem.id },
                 data: {
                     status: inputItem.targetStatus,
                     accepted_by_id: adminUser.id,
-                    // catatan: catatan // Opsional jika ada catatan per item
+                    // catatan: catatan // Masukkan jika di schema Peminjaman_Item ada field catatan
                 }
             });
         }
 
-        // D. Hitung Status Header Otomatis (Setelah item diupdate)
-        // Kita query ulang status items yang baru saja diupdate di dalam transaksi ini
-        const updatedItems = await tx.peminjaman_Item.findMany({
+        // D. Hitung Ulang Status Header (Aggregation)
+        // Query ulang status item terbaru untuk akurasi
+        const finalItems = await tx.peminjaman_Item.findMany({
             where: { peminjaman_handset_id: Number(id) }
         });
 
-        const countDipinjam = updatedItems.filter(i => i.status === StatusPeminjamanItem.DIPINJAM).length;
-        const countDitolak = updatedItems.filter(i => i.status === StatusPeminjamanItem.DITOLAK).length;
-        const countDiajukan = updatedItems.filter(i => i.status === StatusPeminjamanItem.DIAJUKAN).length;
-        const totalItems = updatedItems.length;
+        const totalItems = finalItems.length;
+        const countDipinjam = finalItems.filter(i => i.status === StatusPeminjamanItem.DIPINJAM).length;
+        const countDitolak = finalItems.filter(i => i.status === StatusPeminjamanItem.DITOLAK).length;
+        const countDiajukan = finalItems.filter(i => i.status === StatusPeminjamanItem.DIAJUKAN).length;
+        
+        let newHeaderStatus: StatusPeminjamanHandset;
 
-        let newHeaderStatus: StatusPeminjamanHandset = StatusPeminjamanHandset.DIAJUKAN;
-
+        // Logika penentuan status header
         if (countDiajukan > 0) {
-            newHeaderStatus = StatusPeminjamanHandset.DIAJUKAN; // Masih ada yang gantung
+            newHeaderStatus = StatusPeminjamanHandset.DIAJUKAN; // Masih ada yg pending/diajukan
         } else if (countDipinjam === totalItems) {
-            newHeaderStatus = StatusPeminjamanHandset.DISETUJUI; // Semua diterima
+            newHeaderStatus = StatusPeminjamanHandset.DISETUJUI; // Semua sukses dipinjam
         } else if (countDitolak === totalItems) {
             newHeaderStatus = StatusPeminjamanHandset.DITOLAK; // Semua ditolak
+        } else if (countDipinjam > 0 && countDitolak > 0) {
+            newHeaderStatus = StatusPeminjamanHandset.SEBAGIAN_DISETUJUI; // Ada yang oke, ada yang tolak
         } else {
-            newHeaderStatus = StatusPeminjamanHandset.SEBAGIAN_DISETUJUI; // Campur
+            // Fallback (misal semua dikembalikan atau case lain)
+            newHeaderStatus = peminjaman.status; 
         }
 
-        // E. Update Header Peminjaman
-        const finalHeader = await tx.peminjaman_Handset.update({
+        // UPDATE HEADER PEMINJAMAN
+        const updatedHeader = await tx.peminjaman_Handset.update({
             where: { id: Number(id) },
             data: {
                 status: newHeaderStatus,
                 accepted_by_id: adminUser.id,
-                // catatan: catatan // jika ada catatan global
+                // dokumen: ... (bisa diupdate jika ada generate surat jalan)
+            },
+            include: {
+                // Include untuk response API
+                peminjaman_items: {
+                    include: { barang: true }
+                },
+                user: true
             }
         });
 
-        return { header: finalHeader, items: updatedItems };
+        return updatedHeader;
     });
 
-    // 3. Response Sukses
+    // 3. Response JSON
     res.status(200).json({
-        message: "Verifikasi berhasil disimpan.",
+        message: "Verifikasi peminjaman berhasil diproses.",
         data: {
-            id: result.header.id,
-            status: result.header.status,
-            items: result.items
+            id: result.id,
+            kode_peminjaman: result.kode_peminjaman,
+            status: result.status, // Ini yang dipakai frontend untuk update UI
+            items: result.peminjaman_items.map(item => ({
+                id: item.id,
+                nama_barang: item.barang.nama_barang,
+                status: item.status,
+                jumlah: item.jumlah
+            })),
+            verifikator: adminUser.nama
         }
     });
 });
+
 
 const tolakPeminjamanHandset = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
@@ -497,10 +549,96 @@ const SelesaiPeminjamanBarang = asyncHandler(async (req: Request, res: Response,
     });
 });
 
+const selesaikanPeminjamanHandset = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    // const { catatan } = req.body; // Uncomment jika ingin simpan catatan di header
+
+    if (!id) throw new AppError("ID peminjaman is required", 400);
+
+    // 1. Cek Admin yang memproses
+    const adminUser = await prisma.user.findUnique({
+        where: { email: req.user?.email }
+    });
+    if (!adminUser) throw new AppError("User not found", 404);
+
+    // 2. Mulai Transaksi (Safety First)
+    const result = await prisma.$transaction(async (tx) => {
+        
+        // A. Ambil Data Peminjaman
+        const peminjaman = await tx.peminjaman_Handset.findUnique({
+            where: { id: Number(id) },
+            include: { peminjaman_items: true }
+        });
+
+        if (!peminjaman) throw new AppError("Peminjaman not found", 404);
+
+        // Validasi Status
+        if (peminjaman.status === StatusPeminjamanHandset.SELESAI) {
+            throw new AppError("Peminjaman ini sudah selesai sebelumnya", 400);
+        }
+        
+        // Pastikan hanya yang statusnya DISETUJUI/SEBAGIAN_DISETUJUI/DIPINJAM yang bisa diselesaikan
+        // (Opsional, tapi praktik bagus biar yang masih 'DIAJUKAN' gak bisa langsung 'SELESAI')
+        if (peminjaman.status === StatusPeminjamanHandset.DIAJUKAN || peminjaman.status === StatusPeminjamanHandset.DITOLAK) {
+             throw new AppError("Hanya peminjaman yang sedang berjalan yang bisa diselesaikan", 400);
+        }
+
+        // B. Loop Item
+        for (const item of peminjaman.peminjaman_items) {
+            
+            // LOGIC PENTING: Hanya barang yang statusnya DIPINJAM yang stoknya dikembalikan
+            if (item.status === StatusPeminjamanItem.DIPINJAM) {
+                
+                // 1. Tambah Stok Barang (Return to Inventory)
+                await tx.barang.update({
+                    where: { id: item.barang_id },
+                    data: {
+                        jumlah: { increment: item.jumlah } 
+                    }
+                });
+
+                // 2. Update Status Item
+                await tx.peminjaman_Item.update({
+                    where: { id: item.id },
+                    data: {
+                        status: StatusPeminjamanItem.DIKEMBALIKAN,
+                        jam_realisasi_selesai: new Date(),
+                        tanggal_kembali: new Date(),
+                        accepted_by_id: adminUser.id,
+                    }
+                });
+            }
+        }
+
+        // C. Update Header Peminjaman
+        const updatedHeader = await tx.peminjaman_Handset.update({
+            where: { id: Number(id) },
+            data: {
+                status: StatusPeminjamanHandset.SELESAI,
+                jam_realisasi_selesai: new Date(),
+                tanggal_kembali: new Date(),
+                accepted_by_id: adminUser.id,
+                // catatan: catatan // Masukkan jika ada input catatan
+            },
+            include: {
+                peminjaman_items: true // Return data items biar FE bisa lihat update-nya
+            }
+        });
+
+        return updatedHeader;
+    });
+
+    res.status(200).json({
+        message: "Peminjaman selesai. Stok barang telah dikembalikan.",
+        data: result
+    });
+});
+
 const VerifikasiController = {
     verifikasiPeminjamanHandset,
-    SelesaiPeminjamanBarang,
-    tolakPeminjamanHandset
+    selesaikanPeminjamanHandset,
+    tolakPeminjamanHandset,
+    SelesaiPeminjamanBarang
 };
 
 export default VerifikasiController;

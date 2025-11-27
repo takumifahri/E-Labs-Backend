@@ -16,6 +16,10 @@ barangRouter.get('/',
     BarangController.getAllBarang
 );
 
+barangRouter.get('/listBarang',
+    BarangController.getAllProducts
+);
+
 barangRouter.get('/dashboard', 
     BarangController.getDashboardStats
 );

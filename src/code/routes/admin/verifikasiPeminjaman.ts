@@ -17,10 +17,16 @@ verfikasi_router.patch('/peminjaman-barang/:id',
     VerifikasiController.verifikasiPeminjamanHandset
 );
 
+verfikasi_router.patch('/peminjaman-barang/tolak/:id',
+    authMiddleware,
+    AuthMiddleware.Checkroles(['superadmin', 'pengelola']),
+    VerifikasiController.tolakPeminjamanHandset
+);
+
 verfikasi_router.patch('/peminjaman-barang/selesai/:id',
     authMiddleware,
     AuthMiddleware.Checkroles(['superadmin', 'pengelola']),
-    VerifikasiController.SelesaiPeminjamanBarang
+    VerifikasiController.selesaikanPeminjamanHandset
 );
 
 verfikasi_router.patch('/peminjaman-barang/tolak/:id',
