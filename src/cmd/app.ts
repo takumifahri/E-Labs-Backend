@@ -7,6 +7,9 @@ import { errorHandler, notFound } from "../code/middleware/error";
 import path from "node:path";
 import cookieParser from "cookie-parser";
 import { initAllSchedulers } from "../code/utils/scheduler";
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from "../code/config/swagger";
+
 // fs diperlukan untuk pengecekan debug
 import fs from 'fs'; 
 
@@ -23,6 +26,21 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 
 app.use('/storage', express.static(path.join(process.cwd(), 'src', 'code', 'storage')));
+
+if (process.env.NODE_ENV === 'development') {
+    // ✅ Swagger UI
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+        explorer: true,
+        customCss: '.swagger-ui .topbar { display: none }',
+        customSiteTitle: 'E-Labs+ API Docs'
+    }));
+
+    // ✅ Swagger JSON
+    app.get('/api-docs.json', (req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.send(swaggerSpec);
+    });
+}
 
 // ... Middleware Logger & Scheduler ...
 initAllSchedulers();
