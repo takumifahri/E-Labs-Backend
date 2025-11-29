@@ -887,6 +887,7 @@ const getListPengajuanRuanganTerjadwal = asyncHandler(async (req: Request, res: 
           email: pr.user.email ?? "",
           NIM: pr.user.NIM,
           NIP: pr.user.NIP,
+          Semester: pr.user.semester || 0,
           role: pr.user.role?.nama_role
         }
         : null
@@ -1197,92 +1198,92 @@ const isRuanganAvailable = asyncHandler(async (req: Request, res: Response, next
 
 // INI GAK KEPAKE YA ASU KAYANYA TAPI MASIH DISIMPEN DULU
 const GetStatusRuanganRealtime = asyncHandler(async (req: Request, res: Response) => {
-    // --- PERBAIKAN TIMEZONE START ---
-    const now = new Date();
-    const bufferStart = new Date(now);
-    bufferStart.setDate(bufferStart.getDate() - 1); // Mundur 1 Hari (24 Jam)
-    
-    const bufferEnd = new Date(now);
-    bufferEnd.setDate(bufferEnd.getDate() + 1); // Maju 1 Hari (Buat jaga-jaga)
+  // --- PERBAIKAN TIMEZONE START ---
+  const now = new Date();
+  const bufferStart = new Date(now);
+  bufferStart.setDate(bufferStart.getDate() - 1); // Mundur 1 Hari (24 Jam)
 
-    const ruanganList = await prisma.ruangan.findMany({
+  const bufferEnd = new Date(now);
+  bufferEnd.setDate(bufferEnd.getDate() + 1); // Maju 1 Hari (Buat jaga-jaga)
+
+  const ruanganList = await prisma.ruangan.findMany({
+    orderBy: {
+      nama_ruangan: 'asc'
+    },
+    include: {
+      peminjaman_ruangans: {
+        where: {
+          // Pake Buffer, jangan strict 'Hari Ini'
+          tanggal: {
+            gte: bufferStart,
+            lte: bufferEnd
+          },
+          status: {
+            in: [
+              StatusPeminjamanRuangan.DISETUJUI,
+              StatusPeminjamanRuangan.BERLANGSUNG,
+              StatusPeminjamanRuangan.SELESAI
+            ]
+          }
+        },
         orderBy: {
-            nama_ruangan: 'asc' 
+          jam_mulai: 'asc'
         },
         include: {
-            peminjaman_ruangans: {
-                where: {
-                    // Pake Buffer, jangan strict 'Hari Ini'
-                    tanggal: {
-                        gte: bufferStart,
-                        lte: bufferEnd
-                    },
-                    status: {
-                        in: [
-                            StatusPeminjamanRuangan.DISETUJUI,  
-                            StatusPeminjamanRuangan.BERLANGSUNG, 
-                            StatusPeminjamanRuangan.SELESAI      
-                        ]
-                    }
-                },
-                orderBy: {
-                    jam_mulai: 'asc'
-                },
-                include: {
-                    user: { select: { nama: true } },
-                    matkul: { select: { matkul: true } }
-                }
-            }
+          user: { select: { nama: true } },
+          matkul: { select: { matkul: true } }
         }
-    });
+      }
+    }
+  });
 
-    const formattedData = ruanganList.map(ruang => {
-        return {
-            id: ruang.id,
-            nama: ruang.nama_ruangan,
-            gedung: ruang.gedung,
-            status_fisik: ruang.status, 
-            jadwal_hari_ini: ruang.peminjaman_ruangans.map(pinjam => ({
-                id: pinjam.id,
-                jam_mulai: pinjam.jam_mulai,
-                jam_selesai: pinjam.jam_selesai,
-                jam_realisasi: pinjam.jam_realisasi_selesai, 
-                status: pinjam.status,
-                peminjam: pinjam.user.nama,
-                kegiatan: pinjam.kegiatan || pinjam.matkul?.matkul || "Tidak ada keterangan"
-            }))
-        };
-    });
+  const formattedData = ruanganList.map(ruang => {
+    return {
+      id: ruang.id,
+      nama: ruang.nama_ruangan,
+      gedung: ruang.gedung,
+      status_fisik: ruang.status,
+      jadwal_hari_ini: ruang.peminjaman_ruangans.map(pinjam => ({
+        id: pinjam.id,
+        jam_mulai: pinjam.jam_mulai,
+        jam_selesai: pinjam.jam_selesai,
+        jam_realisasi: pinjam.jam_realisasi_selesai,
+        status: pinjam.status,
+        peminjam: pinjam.user.nama,
+        kegiatan: pinjam.kegiatan || pinjam.matkul?.matkul || "Tidak ada keterangan"
+      }))
+    };
+  });
 
-    return res.status(200).json({
-        status: "success",
-        message: "Data status ruangan realtime retrieved successfully",
-        data: formattedData
-    });
+  return res.status(200).json({
+    status: "success",
+    message: "Data status ruangan realtime retrieved successfully",
+    data: formattedData
+  });
 });
 
 // Di file controller ruangan kamu
 
 const GetRoomsRealtimeState = async (req: Request, res: Response) => {
-    try {
-        const data = await RoomManager.getAllRooms(); 
-        
-        return res.json({ success: true, data });
-    } catch (error) {
-        console.error("Error fetching rooms:", error);
-        return res.status(500).json({ success: false, message: "Internal Server Error" });
-    }
+  try {
+    const data = await RoomManager.getAllRooms();
+
+    return res.json({ success: true, data });
+  } catch (error) {
+    console.error("Error fetching rooms:", error);
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
 };
 
 const getJadwalRuanganPerBulan = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   // ✅ GANTI: Ambil dari query parameters, bukan params
   const { bulan, tahun } = req.query;
-  
+
   // Default ke bulan/tahun sekarang jika tidak diisi
   const now = new Date();
   const currentMonth = now.getMonth() + 1; // 0-based, jadi +1
   const currentYear = now.getFullYear();
-  
+
   const bulanInt = bulan ? parseInt(bulan as string) : currentMonth;
   const tahunInt = tahun ? parseInt(tahun as string) : currentYear;
 

@@ -1110,12 +1110,15 @@ const SelesaiRuangan = asyncHandler(async (req: Request, res: Response) => {
 
     const existingBooking = await prisma.peminjaman_Ruangan.findUnique({
         where: { id: parseInt(id) },
-        select: { id: true, ruangan_id: true, status: true }
+        include: {
+            ruangan: true,
+            user: true
+        }
     });
 
     if (!existingBooking) throw new AppError("Peminjaman not found", 404);
     if (existingBooking.status !== StatusPeminjamanRuangan.BERLANGSUNG) {
-        throw new AppError("Only bookings with status 'DISETUJUI' can be marked as 'SELESAI'", 400);
+        throw new AppError("Only bookings with status 'BERLANGSUNG' can be marked as 'SELESAI'", 400);
     }
 
     const updatedBooking = await prisma.peminjaman_Ruangan.update({
@@ -1127,23 +1130,42 @@ const SelesaiRuangan = asyncHandler(async (req: Request, res: Response) => {
         }
     });
 
-    // Update Ruangan Fisik di DB (Opsional, tapi bagus untuk konsistensi DB)
+    // Update Ruangan Fisik di DB
     if (existingBooking.ruangan_id) {
         await prisma.ruangan.update({
             where: { id: existingBooking.ruangan_id },
             data: { status: StatusRuangan.KOSONG, updatedAt: new Date() }
         });
 
-        // --- [FIX]: PANGGIL SOCKET DISINI ---
-        const io = req.app.get('socketio'); // Pastikan di server.ts ada app.set('socketio', io)
+        // ✅ Socket.IO: Emit room_update untuk early release
+        const io = req.app.get('socketio');
         if (io) {
+            const timeRemaining = existingBooking.jam_selesai 
+                ? Math.floor((existingBooking.jam_selesai.getTime() - Date.now()) / 1000) 
+                : 0;
+
+            io.emit('room_update', {
+                id: existingBooking.ruangan_id,
+                nama: existingBooking.ruangan?.nama_ruangan,
+                status: 'SELESAI', // ✅ Frontend akan tampilkan "KOSONG (Sisa Waktu)"
+                currentBooking: {
+                    id: existingBooking.id,
+                    kegiatan: existingBooking.kegiatan || '-',
+                    jam_selesai_ts: existingBooking.jam_selesai?.getTime(),
+                },
+                time_remaining_seconds: timeRemaining,
+                action: 'EARLY_RELEASE'
+            });
+
+            console.log(`✅ [Socket.IO] room_update emitted: Room ${existingBooking.ruangan_id} - EARLY_RELEASE`);
+
             await RoomManager.updateRoomStatus(io, existingBooking.ruangan_id, 'EARLY_RELEASE');
         } else {
             console.error("Socket IO instance not found in request app");
         }
     }
 
-    clearAllRuanganCaches(); // Jika pakai redis/cache lain
+    clearAllRuanganCaches();
     setImmediate(() => prewarmRuanganCaches());
 
     return res.status(200).json({

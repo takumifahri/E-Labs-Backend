@@ -119,6 +119,7 @@ export interface ListPengajuanPeminjamanRuanganResponse {
         email?: string | null;
         NIM?: string | null;
         NIP?: string | null;
+        Semester?: Number | null;
         role?: string;
     } | null;
 
